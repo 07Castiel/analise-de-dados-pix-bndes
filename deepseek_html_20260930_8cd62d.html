@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — BNDES & PIX</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f3f2f1; --card:#fff; --text:#252423; --muted:#605e5c;
+    --accent:#118dff; --yellow:#f2c811; --green:#107c10; --red:#d13438;
+    --orange:#ff8c00; --border:#e1dfdd;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:13px;padding:16px;}
+  header{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:var(--card);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:16px;}
+  header h1{font-size:18px;font-weight:600;}
+  header .meta{font-size:12px;color:var(--muted);}
+  .tabs{display:flex;gap:8px;margin-bottom:16px;}
+  .tab{padding:10px 22px;background:var(--card);border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);box-shadow:0 1px 2px rgba(0,0,0,.05);}
+  .tab.active{background:var(--accent);color:#fff;}
+  .page{display:none;} .page.active{display:block;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:16px;}
+  .kpi{background:var(--card);border-radius:8px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.08);border-left:4px solid var(--accent);}
+  .kpi.green{border-left-color:var(--green);} .kpi.red{border-left-color:var(--red);}
+  .kpi.yellow{border-left-color:var(--yellow);} .kpi.orange{border-left-color:var(--orange);}
+  .kpi .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+  .kpi .value{font-size:22px;font-weight:700;margin-top:6px;}
+  .kpi .sub{font-size:11px;color:var(--muted);margin-top:2px;}
+  .filters{display:flex;flex-wrap:wrap;gap:12px;align-items:center;background:var(--card);padding:12px 18px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:16px;}
+  .filters label{font-size:12px;color:var(--muted);font-weight:600;}
+  .filters select{padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:#fff;min-width:130px;}
+  .filters button{padding:6px 14px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;}
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;margin-bottom:16px;}
+  .card{background:var(--card);border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);display:flex;flex-direction:column;}
+  .card h3{font-size:13px;font-weight:600;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+  .card h3 span{font-size:11px;color:var(--muted);font-weight:400;}
+  .col-12{grid-column:span 12;} .col-8{grid-column:span 8;} .col-6{grid-column:span 6;} .col-4{grid-column:span 4;}
+  .chart-wrap{position:relative;height:300px;width:100%;}
+  .chart-wrap.tall{height:340px;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  thead th{background:#faf9f8;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);font-weight:600;color:var(--muted);position:sticky;top:0;z-index:1;}
+  tbody td{padding:7px 10px;border-bottom:1px solid #f3f2f1;}
+  tbody tr:hover{background:#faf9f8;}
+  .table-scroll{max-height:420px;overflow:auto;border-radius:4px;}
+  footer{text-align:center;color:var(--muted);font-size:11px;padding:12px;margin-top:8px;}
+  @media(max-width:900px){.col-8,.col-6,.col-4{grid-column:span 12;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📊 Dashboard Corporativo</h1>
+    <div class="meta">BNDES — Indicadores Estratégicos · PIX — Contestações e Fraudes</div>
+  </div>
+  <div class="meta" id="clock"></div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-page="pix">💳 PIX</button>
+  <button class="tab" data-page="bndes">🏦 BNDES</button>
+</div>
+
+<!-- ================= PIX ================= -->
+<section id="pix" class="page active">
+  <div class="kpis" id="pixKpis"></div>
+
+  <div class="filters">
+    <label>Ano:</label>
+    <select id="pixAno"><option value="">Todos</option></select>
+    <label>Mês:</label>
+    <select id="pixMes"><option value="">Todos</option></select>
+    <label>Período:</label>
+    <select id="pixPeriodo">
+      <option value="">Todo o histórico</option>
+      <option value="12">Últimos 12 meses</option>
+      <option value="6">Últimos 6 meses</option>
+      <option value="3">Últimos 3 meses</option>
+    </select>
+    <button onclick="resetPix()">Limpar filtros</button>
+  </div>
+
+  <div class="grid">
+    <div class="card col-8">
+      <h3>Evolução mensal — Contestados × Aceitas × Rejeitadas <span>unidades</span></h3>
+      <div class="chart-wrap tall"><canvas id="chartPixEvolucao"></canvas></div>
+    </div>
+    <div class="card col-4">
+      <h3>Composição das não devoluções <span>quantidade</span></h3>
+      <div class="chart-wrap tall"><canvas id="chartPixComposicao"></canvas></div>
+    </div>
+
+    <div class="card col-6">
+      <h3>Taxa de aceitação ao longo do tempo <span>%</span></h3>
+      <div class="chart-wrap"><canvas id="chartPixTaxa"></canvas></div>
+    </div>
+    <div class="card col-6">
+      <h3>Usuários e chaves com marcação de fraude <span>quantidade</span></h3>
+      <div class="chart-wrap"><canvas id="chartPixFraude"></canvas></div>
+    </div>
+
+    <div class="card col-6">
+      <h3>Valor contestado aceito × Valor devolvido via MED <span>R$</span></h3>
+      <div class="chart-wrap"><canvas id="chartPixValores"></canvas></div>
+    </div>
+    <div class="card col-6">
+      <h3>Percentual de devolução por mês <span>%</span></h3>
+      <div class="chart-wrap"><canvas id="chartPixPercDev"></canvas></div>
+    </div>
+
+    <div class="card col-12">
+      <h3>Detalhamento mensal <span>todos os campos</span></h3>
+      <div class="table-scroll">
+        <table id="pixTable">
+          <thead>
+            <tr>
+              <th>Data</th><th>Contestados</th><th>Aceitas</th><th>Rejeitadas</th>
+              <th>Taxa Aceit. %</th><th>Taxa/100k</th><th>Usuários Fraude</th>
+              <th>Chaves Fraude</th><th>Valor Contestado</th><th>Valor Devolvido</th>
+              <th>% Devolução</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= BNDES ================= -->
+<section id="bndes" class="page">
+  <div class="kpis" id="bndesKpis"></div>
+
+  <div class="filters">
+    <label>Ano:</label>
+    <select id="bndesAno"><option value="">Todos</option></select>
+    <label>Unidade:</label>
+    <select id="bndesUnidade"><option value="">Todas</option></select>
+    <label>Indicador:</label>
+    <select id="bndesIndicador"><option value="">Todos</option></select>
+    <button onclick="resetBndes()">Limpar filtros</button>
+  </div>
+
+  <div class="grid">
+    <div class="card col-8">
+      <h3>Top 15 indicadores por valor <span>conforme filtros</span></h3>
+      <div class="chart-wrap tall"><canvas id="chartBndesTop"></canvas></div>
+    </div>
+    <div class="card col-4">
+      <h3>Distribuição por unidade <span>contagem</span></h3>
+      <div class="chart-wrap tall"><canvas id="chartBndesUnidade"></canvas></div>
+    </div>
+
+    <div class="card col-12">
+      <h3>Evolução por ano <span>soma dos valores filtrados</span></h3>
+      <div class="chart-wrap"><canvas id="chartBndesAno"></canvas></div>
+    </div>
+
+    <div class="card col-12">
+      <h3>Base completa — BNDES <span>indicador, ano, valor, unidade</span></h3>
+      <div class="table-scroll">
+        <table id="bndesTable">
+          <thead>
+            <tr><th>Indicador</th><th>Ano</th><th>Valor</th><th>Unidade</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>Fonte: BNDES · Banco Central (PIX/MED) · Dashboard HTML + Chart.js</footer>
+
+<script>
+/* ============ RELÓGIO ============ */
+document.getElementById('clock').textContent = new Date().toLocaleString('pt-BR');
+
+/* ============ ABAS ============ */
+document.querySelectorAll('.tab[data-page]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab[data-page]').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.page).classList.add('active');
+  });
+});
+
+/* ============ HELPERS ============ */
+const fmt = v => v.toLocaleString('pt-BR');
+const fmtR = v => {
+  if(Math.abs(v)>=1e9) return 'R$ '+(v/1e9).toFixed(2).replace('.',',')+' bi';
+  if(Math.abs(v)>=1e6) return 'R$ '+(v/1e6).toFixed(2).replace('.',',')+' mi';
+  if(Math.abs(v)>=1e3) return 'R$ '+(v/1e3).toFixed(1).replace('.',',')+' mil';
+  return 'R$ '+v.toFixed(2).replace('.',',');
+};
+const pixLabel = d => d.slice(4,6)+'/'+d.slice(0,4);
+
+/* ============ DADOS PIX ============ */
+const pixRaw = [
+  {d:'202201',c:71508,a:57777,r:13731,t100:5.284,uf:22507,cf:24811,vc:122558868.28,vi:4261762.10,vp:2227049.21,qs:30679,qe:5074,qd:3955,pd:5.29},
+  {d:'202202',c:78636,a:60680,r:17956,t100:5.220,uf:23984,cf:25883,vc:136034158.58,vi:5355273.06,vp:2792891.25,qs:33078,qe:6190,qd:3401,pd:5.99},
+  {d:'202203',c:134963,a:105015,r:29948,t100:7.708,uf:35590,cf:39074,vc:216939856.12,vi:10998092.06,vp:6013211.68,qs:53516,qe:13035,qd:8146,pd:7.84},
+  {d:'202204',c:152636,a:114763,r:37873,t100:8.082,uf:32356,cf:35552,vc:178163735.34,vi:8494563.65,vp:3582905.43,qs:52193,qe:24293,qd:9855,pd:6.78},
+  {d:'202205',c:229401,a:149006,r:80395,t100:9.460,uf:35454,cf:39301,vc:224862932.69,vi:8179939.00,vp:4156913.48,qs:60416,qe:43379,qd:11374,pd:5.49},
+  {d:'202206',c:190206,a:146526,r:43680,t100:8.969,uf:38126,cf:42340,vc:223677609.87,vi:15034322.97,vp:4462077.23,qs:64210,qe:36153,qd:7580,pd:8.72},
+  {d:'202207',c:186056,a:142493,r:43563,t100:8.143,uf:38742,cf:42601,vc:213715054.18,vi:9793327.15,vp:4361098.23,qs:67988,qe:27813,qd:7493,pd:6.62},
+  {d:'202208',c:218131,a:155021,r:63110,t100:8.339,uf:41737,cf:43824,vc:233907823.75,vi:10759053.55,vp:4878295.45,qs:96609,qe:6372,qd:8199,pd:6.69},
+  {d:'202209',c:196376,a:137731,r:58645,t100:7.167,uf:40907,cf:44950,vc:220824276.90,vi:12832651.52,vp:6476548.20,qs:83451,qe:3758,qd:7874,pd:8.74},
+  {d:'202210',c:199364,a:147113,r:52251,t100:7.180,uf:42511,cf:45795,vc:232190741.27,vi:15522803.17,vp:6667304.82,qs:84845,qe:3066,qd:13594,pd:9.56},
+  {d:'202211',c:215663,a:155175,r:60488,t100:7.376,uf:43412,cf:46983,vc:243995119.62,vi:13685909.73,vp:6575795.57,qs:82176,qe:3266,qd:21659,pd:8.30},
+  {d:'202212',c:272183,a:184605,r:87578,t100:7.618,uf:50625,cf:55045,vc:777577423.07,vi:14551837.02,vp:7705261.98,qs:99919,qe:3745,qd:26401,pd:2.86},
+  {d:'202301',c:208926,a:140714,r:68212,t100:6.446,uf:47610,cf:53713,vc:254667303.59,vi:12605085.82,vp:7222005.07,qs:71212,qe:3005,qd:13200,pd:7.79},
+  {d:'202302',c:210490,a:141113,r:69377,t100:6.552,uf:43825,cf:49611,vc:248907251.40,vi:14631634.06,vp:9850732.78,qs:79724,qe:2359,qd:9271,pd:9.84},
+  {d:'202303',c:278690,a:185654,r:93036,t100:7.292,uf:51265,cf:58049,vc:322778922.86,vi:17933410.50,vp:10048680.76,qs:108653,qe:2759,qd:9869,pd:8.67},
+  {d:'202304',c:272840,a:179832,r:93008,t100:7.139,uf:51274,cf:57209,vc:340301283.61,vi:17104572.55,vp:13630556.50,qs:103331,qe:3437,qd:12919,pd:9.03},
+  {d:'202305',c:371822,a:261416,r:110406,t100:9.475,uf:59510,cf:68852,vc:421946678.04,vi:29141561.10,vp:10030452.15,qs:163335,qe:5521,qd:20609,pd:9.28},
+  {d:'202306',c:343010,a:201734,r:141276,t100:7.058,uf:56600,cf:64709,vc:319735983.50,vi:19854822.46,vp:10014782.56,qs:112667,qe:5427,qd:17804,pd:9.34},
+  {d:'202307',c:403428,a:230453,r:172975,t100:7.488,uf:64624,cf:73461,vc:343271986.06,vi:19533694.57,vp:9576716.17,qs:142985,qe:10104,qd:8084,pd:8.48},
+  {d:'202308',c:417673,a:232593,r:185080,t100:7.095,uf:62877,cf:70678,vc:410383099.54,vi:21458142.76,vp:11059998.24,qs:146737,qe:9327,qd:11170,pd:7.92},
+  {d:'202309',c:416665,a:220849,r:195816,t100:6.590,uf:56983,cf:63594,vc:387570686.82,vi:21169202.08,vp:10444199.74,qs:138909,qe:6924,qd:8679,pd:8.16},
+  {d:'202310',c:477914,a:244351,r:233563,t100:6.874,uf:58174,cf:64833,vc:455754645.95,vi:25891679.47,vp:15502650.07,qs:156848,qe:4420,qd:8810,pd:9.08},
+  {d:'202311',c:503380,a:238073,r:265307,t100:6.425,uf:63898,cf:70745,vc:442347741.20,vi:35898697.93,vp:11692951.96,qs:150118,qe:4602,qd:10677,pd:10.76},
+  {d:'202312',c:650701,a:297341,r:353360,t100:7.057,uf:68487,cf:75550,vc:405936605.90,vi:28032339.98,vp:8458293.45,qs:172457,qe:3409,qd:15843,pd:8.99},
+  {d:'202401',c:795616,a:346693,r:448923,t100:9.004,uf:72733,cf:80283,vc:474119643.07,vi:27264748.79,vp:12637741.47,qs:198643,qe:2397,qd:13312,pd:8.42},
+  {d:'202402',c:684123,a:286689,r:397434,t100:7.452,uf:66246,cf:73057,vc:420843695.16,vi:20329838.97,vp:10869219.34,qs:182946,qe:2464,qd:8223,pd:7.41},
+  {d:'202403',c:757577,a:323645,r:433932,t100:7.487,uf:72308,cf:80709,vc:552456187.49,vi:29350165.04,vp:15658177.55,qs:197298,qe:4641,qd:10913,pd:8.15},
+  {d:'202404',c:780242,a:330887,r:449355,t100:7.615,uf:72062,cf:80430,vc:451711293.76,vi:23131456.96,vp:10640500.52,qs:207254,qe:4978,qd:15544,pd:7.48},
+  {d:'202405',c:841711,a:346370,r:495341,t100:7.496,uf:78884,cf:87450,vc:537340697.53,vi:29102491.12,vp:18368850.46,qs:225186,qe:7460,qd:20565,pd:8.83},
+  {d:'202406',c:924449,a:378357,r:546092,t100:8.124,uf:81241,cf:89468,vc:458419507.54,vi:26670045.76,vp:12659754.68,qs:242595,qe:7589,qd:17041,pd:8.58},
+  {d:'202407',c:1176263,a:530753,r:645510,t100:11.088,uf:100793,cf:112691,vc:570192961.96,vi:29139817.57,vp:14460769.97,qs:336459,qe:12787,qd:21231,pd:7.65},
+  {d:'202408',c:1146697,a:517930,r:628767,t100:10.339,uf:97290,cf:110039,vc:841884565.49,vi:51285171.91,vp:31845147.72,qs:325681,qe:19518,qd:16115,pd:9.87},
+  {d:'202409',c:1159575,a:479645,r:679930,t100:9.799,uf:97114,cf:107204,vc:581604033.67,vi:28637603.24,vp:12713161.28,qs:286864,qe:21380,qd:11428,pd:7.11},
+  {d:'202410',c:1262997,a:494691,r:768306,t100:9.707,uf:103508,cf:116607,vc:628578936.77,vi:39914254.85,vp:15032820.27,qs:286993,qe:8646,qd:13725,pd:8.74},
+  {d:'202411',c:1408727,a:492066,r:916661,t100:9.515,uf:119787,cf:136511,vc:628694403.03,vi:24548545.83,vp:15490359.03,qs:326645,qe:17524,qd:26235,pd:6.37},
+  {d:'202412',c:1356959,a:384501,r:972458,t100:6.734,uf:109438,cf:122638,vc:541233671.86,vi:27761889.91,vp:15069643.36,qs:245855,qe:9374,qd:17645,pd:7.91},
+  {d:'202501',c:1343369,a:369828,r:973541,t100:7.308,uf:102416,cf:113777,vc:543390959.36,vi:28834067.69,vp:37215403.91,qs:204394,qe:6762,qd:15657,pd:12.16},
+  {d:'202502',c:1101789,a:352628,r:749161,t100:7.073,uf:93754,cf:102212,vc:661738440.62,vi:20715832.37,vp:12267767.40,qs:186080,qe:4913,qd:14742,pd:4.98},
+  {d:'202503',c:1237573,a:347156,r:890417,t100:6.239,uf:99930,cf:108630,vc:564202596.56,vi:18537850.49,vp:10213257.41,qs:185539,qe:4934,qd:15700,pd:5.10},
+  {d:'202504',c:1393658,a:372501,r:1021157,t100:6.654,uf:101924,cf:110426,vc:603533084.35,vi:46416988.07,vp:21070310.64,qs:213292,qe:6685,qd:10277,pd:11.18},
+  {d:'202505',c:1361178,a:308964,r:1052214,t100:5.210,uf:98893,cf:107022,vc:485908114.81,vi:38849444.74,vp:15702065.46,qs:183181,qe:5622,qd:9322,pd:11.23},
+  {d:'202506',c:1258832,a:293725,r:965107,t100:5.065,uf:92693,cf:100617,vc:671387752.50,vi:34476615.69,vp:18910916.07,qs:169625,qe:11773,qd:14011,pd:7.95},
+  {d:'202507',c:1328140,a:325959,r:1002181,t100:5.435,uf:106482,cf:117218,vc:698566565.98,vi:40389809.35,vp:28921543.80,qs:176413,qe:6961,qd:16525,pd:9.92},
+  {d:'202508',c:1233716,a:285354,r:948362,t100:4.573,uf:99151,cf:108573,vc:727671388.95,vi:61592739.40,vp:26469176.43,qs:154401,qe:5964,qd:10379,pd:12.10},
+  {d:'202509',c:1243173,a:298712,r:944461,t100:4.870,uf:95145,cf:103690,vc:610598393.15,vi:34541200.24,vp:16473448.32,qs:168610,qe:6140,qd:14675,pd:8.35},
+  {d:'202510',c:3455796,a:367845,r:3087951,t100:5.700,uf:130581,cf:138425,vc:769478130.37,vi:45096064.71,vp:25520378.39,qs:202683,qe:8918,qd:14877,pd:9.18},
+  {d:'202511',c:3505010,a:288579,r:3216431,t100:4.467,uf:108678,cf:114767,vc:859859976.12,vi:39059779.89,vp:19768616.22,qs:152014,qe:8155,qd:13238,pd:6.84},
+  {d:'202512',c:3771666,a:322535,r:3449131,t100:4.544,uf:105166,cf:110831,vc:573884285.38,vi:36933198.18,vp:18143483.07,qs:183232,qe:8235,qd:11307,pd:9.60},
+  {d:'202601',c:3181210,a:279045,r:2902165,t100:4.385,uf:92490,cf:98573,vc:723028812.55,vi:66090325.44,vp:45284406.04,qs:154916,qe:9400,qd:14792,pd:15.40},
+  {d:'202602',c:2813735,a:281590,r:2532145,t100:4.704,uf:86913,cf:92233,vc:655815446.71,vi:58312146.87,vp:28965231.21,qs:142869,qe:31493,qd:11915,pd:13.31},
+  {d:'202603',c:2925122,a:308793,r:2616329,t100:4.580,uf:95005,cf:101284,vc:705387976.55,vi:65660724.21,vp:27370647.62,qs:193825,qe:7498,qd:8040,pd:13.19},
+  {d:'202604',c:2960234,a:283016,r:2677218,t100:4.236,uf:87892,cf:94173,vc:598266370.36,vi:74635383.13,vp:22445603.71,qs:172927,qe:8584,qd:10477,pd:16.23}
+];
+
+/* ============ DADOS BNDES ============ */
+const bndesRaw = [
+  ['# de operações automáticas','Quantidade',{2018:72274,2019:54665}],
+  ['# de operações não automáticas','Quantidade',{2018:836,2019:496}],
+  ['% de operações aprovadas em até 180 dias','%',{2018:0}],
+  ['Apoio a Educação, Saúde e Segurança','Quantidade',{2018:0}],
+  ['Apoio a Educação, Saúde e Segurança (em bilhões)','R$ bilhões',{2019:0}],
+  ['Aprovações em temas prioritários (Peso 0,2)','Índice',{2017:0}],
+  ['Avanço na adoção do Quadro de Resultados (Peso 0,2)','Índice',{2017:0}],
+  ['Carteira de Fundos de Investimento','Quantidade',{2018:0}],
+  ['Carteira de Fundos de Investimento (em bilhões)','R$ bilhões',{2019:0}],
+  ['Clientes Financiados por Cooperativas de Crédito','Quantidade',{2023:88000}],
+  ['Clientes MPMEs e PFs Apoiados com Crédito','Quantidade',{2023:127000}],
+  ['Contratação, ambientação e alocação de novos empregados','Quantidade',{2024:600,2025:600}],
+  ['Contratações em infraestrutura - CIN (R$ milhões)','R$ milhões',{2020:19000}],
+  ['Crédito para MPMEs e PFs em Produtos de Garantias (R$ milhões)','R$ milhões',{2023:24000}],
+  ['Desembolso em Desenvolvimento Regional','Quantidade',{2018:0}],
+  ['Desembolso em Desenvolvimento Regional (em bilhões)','R$ bilhões',{2019:0}],
+  ['Desembolso em Estrutura Produtiva','Quantidade',{2018:0}],
+  ['Desembolso em Estrutura Produtiva (em bilhões)','R$ bilhões',{2019:0}],
+  ['Desembolso em Infraestrutura','Quantidade',{2018:0}],
+  ['Desembolso em Infraestrutura (em bilhões)','R$ bilhões',{2019:30}],
+  ['Desembolso em Inovação','Quantidade',{2018:0}],
+  ['Desembolso em Inovação (em bilhões)','R$ bilhões',{2019:2}],
+  ['Desembolso em Sustentabilidade','Quantidade',{2018:0}],
+  ['Desembolso em Sustentabilidade (em bilhões)','R$ bilhões',{2019:16}],
+  ['Desembolso para MPMEs e Pessoa Física (em milhões)','R$ milhões',{2019:26226}],
+  ['Despesa Administrativa e de Pessoal (em R$ mil)','R$ mil',{2019:2339635}],
+  ['Despesas Administrativa e de Pessoal (R$ mil)','R$ mil',{2021:2449221}],
+  ['Despesas administrativas e de pessoal - DAP (R$ milhões)','R$ milhões',{2020:2204}],
+  ['Despesas Administrativas e de Pessoal (R$ mil)','R$ mil',{2023:3124842}],
+  ['Despesas Administrativas e de Pessoal por Ativo Total Médio','Índice',{2022:0,2023:0}],
+  ['Entrega de estudos de estruturação de projetos (Peso 0,2)','Índice',{2017:0}],
+  ['Estudos de estruturação de projetos','Quantidade',{2018:0}],
+  ['Fábrica de Projetos e Desestatização - FPD (número de marcos)','Quantidade',{2020:100}],
+  ['Fábrica de Projetos e Desestatização (Qtd. de marcos)','Quantidade',{2021:90}],
+  ['Fábrica de Projetos e Desestatização (Qtd de marcos)','Quantidade',{2022:300}],
+  ['Implementação planos de ação (Peso 0,1)','Índice',{2017:0}],
+  ['Índice de Eficiência','Índice',{2018:0}],
+  ['Índice de Eficiência em R$ (Peso)','Índice',{2017:0}],
+  ['Índice de Eficiência (em R$ mil)','R$ mil',{2019:0}],
+  ['Marcos de Estruturação de Projetos','Quantidade',{2023:65}],
+  ['Marcos de estruturação de projetos com foco ambiental e climático','Quantidade',{2023:19,2025:9}],
+  ['Marcos de estruturação de projetos com foco social','Quantidade',{2023:31,2024:27}],
+  ['Marcos de estruturação de projetos de infraestrutura','Quantidade',{2023:17,2024:21,2025:32}],
+  ['Marcos de Estruturação de Projetos de Infraestrutura Social','Quantidade',{2023:29}],
+  ['Marcos de estruturação de projetos executados','Quantidade',{2022:68}],
+  ['Marcos de Estruturação Projetos Foco Ambiental e Climático','Quantidade',{2023:13}],
+  ['Número de Operações Aprovadas de Infraestrutura (Qtd.)','Quantidade',{2020:26}],
+  ['Operações com Foco Ambiental e Climático','Quantidade',{2023:63}],
+  ['Operações com Foco Social','Quantidade',{2023:22}],
+  ['Operações de Exportação','Quantidade',{2023:110}],
+  ['Operações de Garantia e de Instrumentos Alternativos (Qtd)','Quantidade',{2022:30}],
+  ['Operações do Fundo Amazônia e Demais Ambientais Não Reembolsáveis','Quantidade',{2023:12}],
+  ['Operações em Desenvolvimento Produtivo','Quantidade',{2023:65}],
+  ['Operações em Infraestrutura','Quantidade',{2023:54}],
+  ['Operações em Inovação','Quantidade',{2023:7}],
+  ['Operações Inovadoras de Cofinanciamentos de Infraestrutura (Qtd.)','Quantidade',{2020:10}],
+  ['Operações nos Focos de Infraestrutura (Qtd)','Quantidade',{2022:300}],
+  ['Operações nos Focos Socioambientais (%)','%',{2022:100}],
+  ['Percentual de Operações Aprovadas dentro dos Prazos (Esteiras)','%',{2022:0,2023:0}],
+  ['Percentual de operações aprovadas em até 180 dias (Peso 0,2)','%',{2017:50}],
+  ['Performance média Sustentabilidade Financeira','Índice',{2017:1022175}],
+  ['Prazo de Aprovação','Índice',{2019:0}],
+  ['Projetos de desenvolvimento de sistemas no prazo (Peso 0,1)','Índice',{2017:0}],
+  ['Qualidade da Carteira de Crédito (Sustentabilidade financeira)','Índice',{2017:1077}],
+  ['Qualidade relativa da carteira de crédito','Índice',{2019:0,2023:0}],
+  ['Qualidade Relativa da Carteira de Crédito (%)','%',{2020:0}],
+  ['Quantidade de clientes financiados por cooperativas de crédito','Quantidade',{2024:128749,2025:164000}],
+  ['Quantidade de clientes MPMEs e PFs apoiados com crédito','Quantidade',{2024:172380,2025:228000}],
+  ['Quantidade de MPMEs e PFs Apoiadas com Produtos de Garantia','Quantidade',{2023:65000}],
+  ['Quantidade de MPMEs e PFs apoiadas com produtos de garantia','Quantidade',{2025:85000}],
+  ['Quantidade de Ofertas Públicas Coordenadas','Quantidade',{2022:12}],
+  ['Quantidade de operações ambientais, chamadas públicas e editais aprovados','Quantidade',{2024:22,2025:27}],
+  ['Quantidade de operações aprovadas de economia verde','Quantidade',{2022:74}],
+  ['Quantidade de operações aprovadas em desenvolvimento produtivo','Quantidade',{2023:80,2024:110}],
+  ['Quantidade de operações aprovadas em desenvolvimento social e gestão pública','Quantidade',{2023:50,2024:60}],
+  ['Quantidade de Operações Aprovadas em Economia Verde','Quantidade',{2023:66}],
+  ['Quantidade de operações aprovadas em infraestrutura','Quantidade',{2023:58,2024:66}],
+  ['Quantidade de operações aprovadas em inovação','Quantidade',{2023:20,2024:25}],
+  ['Quantidade de operações aprovadas/homologadas de exportação','Quantidade',{2022:142}],
+  ['Quantidade de Operações Aprovadas/Homologadas de Exportação','Quantidade',{2023:130}],
+  ['Quantidade de operações de mercado de capitais aprovadas','Quantidade',{2024:12,2025:18}],
+  ['Quantidade de operações mobilizadoras de recursos aprovadas','Quantidade',{2024:16,2025:16}],
+  ['Quantidade de operações não automáticas aprovadas','Quantidade',{2024:197,2025:232}],
+  ['Resultado da Carteira de Crédito e Repasses (R$ milhões)','R$ milhões',{2017:5}],
+  ['Resultado de Operações de Crédito e Repasses','Índice',{2018:0,2019:0}],
+  ['Resultado de Operações de Crédito e Repasses por empregado','Índice',{2019:0}],
+  ['Resultado de Operações de Crédito e Repasses por Empregado (R$ milhões/empregado)','R$ milhões',{2020:6}],
+  ['Resultado operacional bruto por empregado (Em R$ Milhões)','R$ milhões',{2024:4461}],
+  ['Resultado Operacional Bruto por Empregado (R$ milhões)','R$ milhões',{2022:0,2023:3158}],
+  ['Spread Básico Médio das Contratações','Índice',{2017:1}],
+  ['Valor das operações aprovadas (Em R$ Milhões)','R$ milhões',{2024:170323}],
+  ['Valor das Operações Aprovadas (R$ milhões)','R$ milhões',{2023:145074}],
+  ['Valor das operações aprovadas de economia verde (Em R$ Milhões)','R$ milhões',{2024:20080}],
+  ['Valor das operações aprovadas em desenvolvimento produtivo (Em R$ Milhões)','R$ milhões',{2024:15000}],
+  ['Valor das Operações Aprovadas em Desenvolvimento Produtivo (R$ milhões)','R$ milhões',{2023:9500}],
+  ['Valor das operações aprovadas em desenvolvimento social e gestão pública (Em R$ Milhões)','R$ milhões',{2024:24400}],
+  ['Valor das Operações Aprovadas em Desenvolvimento Social e Gestão Pública (R$ milhões)','R$ milhões',{2023:9158}],
+  ['Valor das Operações Aprovadas em Economia Verde (R$ milhões)','R$ milhões',{2023:20161}],
+  ['Valor das operações aprovadas em infraestrutura (Em R$ Milhões)','R$ milhões',{2024:44500}],
+  ['Valor das Operações Aprovadas em Infraestrutura (R$ milhões)','R$ milhões',{2023:38328}],
+  ['Valor das operações aprovadas em inovação (Em R$ Milhões)','R$ milhões',{2024:6000}],
+  ['Valor das Operações Aprovadas em Inovação (R$ milhões)','R$ milhões',{2023:5000}],
+  ['Valor das operações aprovadas/homologadas de exportação (Em R$ Milhões)','R$ milhões',{2024:12500}],
+  ['Valor das Operações Aprovadas/Homologadas de Exportação (R$ milhões)','R$ milhões',{2023:10000}],
+  ['Valor das Operações Não-Automáticas Aprovadas (Em R$ Milhões)','R$ milhões',{2024:80323}],
+  ['Valor Total de Operações Aprovadas (R$ milhões)','R$ milhões',{2022:95532}]
+];
+
+const bndesLong = [];
+bndesRaw.forEach(([ind,uni,anos])=>{
+  Object.keys(anos).forEach(a=>{
+    bndesLong.push({indicador:ind, unidade:uni, ano:parseInt(a), valor:anos[a]});
+  });
+});
+
+/* ============ CHART DEFAULTS ============ */
+Chart.defaults.font.family = "'Segoe UI',sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = '#605e5c';
+Chart.defaults.plugins.legend.labels.boxWidth = 12;
+Chart.defaults.plugins.legend.labels.padding = 10;
+
+const charts = {};
+function mk(id, cfg){
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), cfg);
+}
+
+/* ============ PIX ============ */
+function getPixFiltered(){
+  const ano = document.getElementById('pixAno').value;
+  const mes = document.getElementById('pixMes').value;
+  const per = document.getElementById('pixPeriodo').value;
+  let data = [...pixRaw];
+  if(ano) data = data.filter(d=>d.d.slice(0,4)===ano);
+  if(mes) data = data.filter(d=>d.d.slice(4,6)===mes);
+  if(per) data = data.slice(-parseInt(per));
+  return data;
+}
+
+function renderPix(){
+  const data = getPixFiltered();
+
+  const totC = data.reduce((s,d)=>s+d.c,0);
+  const totA = data.reduce((s,d)=>s+d.a,0);
+  const totR = data.reduce((s,d)=>s+d.r,0);
+  const totVC = data.reduce((s,d)=>s+d.vc,0);
+  const totDev = data.reduce((s,d)=>s+d.vi+d.vp,0);
+  const taxa = totC ? (totA/totC*100) : 0;
+  const percDev = totVC ? (totDev/totVC*100) : 0;
+
+  document.getElementById('pixKpis').innerHTML = `
+    <div class="kpi"><div class="label">Pix contestados</div><div class="value">${fmt(totC)}</div><div class="sub">${data.length} meses</div></div>
+    <div class="kpi green"><div class="label">Contestações aceitas</div><div class="value">${fmt(totA)}</div><div class="sub">${fmt(totR)} rejeitadas</div></div>
+    <div class="kpi yellow"><div class="label">Taxa de aceitação</div><div class="value">${taxa.toFixed(2).replace('.',',')}%</div><div class="sub">aceitas / contestados</div></div>
+    <div class="kpi orange"><div class="label">Valor contestado aceito</div><div class="value">${fmtR(totVC)}</div><div class="sub">soma no período</div></div>
+    <div class="kpi red"><div class="label">Valor devolvido via MED</div><div class="value">${fmtR(totDev)}</div><div class="sub">${percDev.toFixed(2).replace('.',',')}% do contestado</div></div>
+    <div class="kpi"><div class="label">Usuários c/ fraude</div><div class="value">${fmt(data.reduce((s,d)=>s+d.uf,0))}</div><div class="sub">chaves: ${fmt(data.reduce((s,d)=>s+d.cf,0))}</div></div>
+  `;
+
+  mk('chartPixEvolucao',{
+    type:'bar',
+    data:{labels:data.map(d=>pixLabel(d.d)),datasets:[
+      {label:'Contestados',data:data.map(d=>d.c),backgroundColor:'#118dff'},
+      {label:'Aceitas',data:data.map(d=>d.a),backgroundColor:'#107c10'},
+      {label:'Rejeitadas',data:data.map(d=>d.r),backgroundColor:'#d13438'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{x:{ticks:{maxRotation:60,minRotation:45}},y:{beginAtZero:true}},
+      plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.parsed.y)}}}}
+  });
+
+  const qs = data.reduce((s,d)=>s+d.qs,0);
+  const qe = data.reduce((s,d)=>s+d.qe,0);
+  const qd = data.reduce((s,d)=>s+d.qd,0);
+  const totND = qs+qe+qd || 1;
+  mk('chartPixComposicao',{
+    type:'doughnut',
+    data:{labels:['Saldo insuficiente','Conta encerrada','Motivos diversos'],
+      datasets:[{data:[qs,qe,qd],backgroundColor:['#118dff','#f2c811','#d13438']}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},
+      tooltip:{callbacks:{label:c=>c.label+': '+fmt(c.parsed)+' ('+(c.parsed/totND*100).toFixed(1)+'%)'}}}}
+  });
+
+  mk('chartPixTaxa',{
+    type:'line',
+    data:{labels:data.map(d=>pixLabel(d.d)),datasets:[
+      {label:'Taxa de aceitação %',data:data.map(d=>d.c?(d.a/d.c*100):0),
+       borderColor:'#118dff',backgroundColor:'rgba(17,141,255,.15)',fill:true,tension:.3,pointRadius:2}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(2)+'%'}}}}
+  });
+
+  mk('chartPixFraude',{
+    type:'bar',
+    data:{labels:data.map(d=>pixLabel(d.d)),datasets:[
+      {label:'Usuários',data:data.map(d=>d.uf),backgroundColor:'#ff8c00'},
+      {label:'Chaves',data:data.map(d=>d.cf),backgroundColor:'#0b6cbf'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{x:{ticks:{maxRotation:60,minRotation:45}}},
+      plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.parsed.y)}}}}
+  });
+
+  mk('chartPixValores',{
+    type:'line',
+    data:{labels:data.map(d=>pixLabel(d.d)),datasets:[
+      {label:'Valor contestado aceito',data:data.map(d=>d.vc),
+       borderColor:'#118dff',backgroundColor:'rgba(17,141,255,.12)',fill:true,tension:.3,pointRadius:2},
+      {label:'Valor devolvido MED',data:data.map(d=>d.vi+d.vp),
+       borderColor:'#107c10',backgroundColor:'rgba(16,124,16,.12)',fill:true,tension:.3,pointRadius:2}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtR(v)}}},
+      plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtR(c.parsed.y)}}}}
+  });
+
+  mk('chartPixPercDev',{
+    type:'bar',
+    data:{labels:data.map(d=>pixLabel(d.d)),datasets:[
+      {label:'% Devolução',data:data.map(d=>d.pd),
+       backgroundColor:data.map(d=>d.pd>=10?'#107c10':d.pd>=5?'#f2c811':'#d13438')}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{x:{ticks:{maxRotation:60,minRotation:45}},y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(2)+'%'}}}}
+  });
+
+  const tbody = document.querySelector('#pixTable tbody');
+  tbody.innerHTML = data.slice().reverse().map(d=>{
+    const tx = d.c?(d.a/d.c*100):0;
+    const vd = d.vi+d.vp;
+    return `<tr>
+      <td>${pixLabel(d.d)}</td>
+      <td>${fmt(d.c)}</td>
+      <td>${fmt(d.a)}</td>
+      <td>${fmt(d.r)}</td>
+      <td>${tx.toFixed(2)}%</td>
+      <td>${d.t100.toFixed(3)}</td>
+      <td>${fmt(d.uf)}</td>
+      <td>${fmt(d.cf)}</td>
+      <td>${fmtR(d.vc)}</td>
+      <td>${fmtR(vd)}</td>
+      <td>${d.pd.toFixed(2)}%</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ============ BNDES ============ */
+function getBndesFiltered(){
+  const ano = document.getElementById('bndesAno').value;
+  const uni = document.getElementById('bndesUnidade').value;
+  const ind = document.getElementById('bndesIndicador').value;
+  return bndesLong.filter(r =>
+    (!ano || r.ano===parseInt(ano)) &&
+    (!uni || r.unidade===uni) &&
+    (!ind || r.indicador===ind)
+  );
+}
+
+function renderBndes(){
+  const data = getBndesFiltered();
+
+  const totalReg = data.length;
+  const totalInd = new Set(data.map(d=>d.indicador)).size;
+  const totalAnos = new Set(data.map(d=>d.ano)).size;
+  const somaVal = data.reduce((s,d)=>s+d.valor,0);
+
+  document.getElementById('bndesKpis').innerHTML = `
+    <div class="kpi"><div class="label">Registros</div><div class="value">${fmt(totalReg)}</div><div class="sub">indicador × ano</div></div>
+    <div class="kpi green"><div class="label">Indicadores únicos</div><div class="value">${fmt(totalInd)}</div><div class="sub">conforme filtro</div></div>
+    <div class="kpi yellow"><div class="label">Anos cobertos</div><div class="value">${fmt(totalAnos)}</div><div class="sub">de 2017 a 2025</div></div>
+    <div class="kpi orange"><div class="label">Soma dos valores</div><div class="value">${fmt(somaVal)}</div><div class="sub">mistura unidades</div></div>
+  `;
+
+  // Top 15
+  const byInd = {};
+  data.forEach(d=>{ byInd[d.indicador] = (byInd[d.indicador]||0) + d.valor; });
+  const top = Object.entries(byInd).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  mk('chartBndesTop',{
+    type:'bar',
+    data:{
+      labels:top.map(t=>t[0].length>42?t[0].slice(0,42)+'…':t[0]),
+      datasets:[{label:'Valor',data:top.map(t=>t[1]),backgroundColor:'#118dff'}]
+    },
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.parsed.x)}}},
+      scales:{x:{beginAtZero:true}}}
+  });
+
+  // Distribuição por unidade
+  const byUni = {};
+  data.forEach(d=>{ byUni[d.unidade] = (byUni[d.unidade]||0) + 1; });
+  mk('chartBndesUnidade',{
+    type:'doughnut',
+    data:{
+      labels:Object.keys(byUni),
+      datasets:[{data:Object.values(byUni),
+        backgroundColor:['#118dff','#107c10','#f2c811','#d13438','#ff8c00','#0b6cbf','#8764b8']}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom'}}}
+  });
+
+  // Evolução por ano
+  const byAno = {};
+  data.forEach(d=>{ byAno[d.ano] = (byAno[d.ano]||0) + d.valor; });
+  const anos = Object.keys(byAno).sort();
+  mk('chartBndesAno',{
+    type:'line',
+    data:{labels:anos,datasets:[
+      {label:'Soma dos valores',data:anos.map(a=>byAno[a]),
+       borderColor:'#118dff',backgroundColor:'rgba(17,141,255,.15)',fill:true,tension:.3,pointRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{y:{beginAtZero:true}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.parsed.y)}}}}
+  });
+
+  // Tabela
+  const rows = data.slice().sort((a,b)=> b.valor-a.valor || a.indicador.localeCompare(b.indicador));
+  document.querySelector('#bndesTable tbody').innerHTML = rows.map(r=>`
+    <tr>
+      <td>${r.indicador}</td>
+      <td>${r.ano}</td>
+      <td>${fmt(r.valor)}</td>
+      <td>${r.unidade}</td>
+    </tr>
+  `).join('');
+}
+
+/* ============ FILTROS ============ */
+function populateFilters(){
+  const anos = [...new Set(pixRaw.map(d=>d.d.slice(0,4)))].sort();
+  const meses = [...new Set(pixRaw.map(d=>d.d.slice(4,6)))].sort();
+  const selAno = document.getElementById('pixAno');
+  anos.forEach(a=> selAno.add(new Option(a,a)));
+  const selMes = document.getElementById('pixMes');
+  const nomes = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+  meses.forEach(m=> selMes.add(new Option(nomes[parseInt(m)-1]+' ('+m+')',m)));
+
+  const bAno = [...new Set(bndesLong.map(d=>d.ano))].sort();
+  const bUni = [...new Set(bndesLong.map(d=>d.unidade))].sort();
+  const bInd = [...new Set(bndesLong.map(d=>d.indicador))].sort();
+  const sA = document.getElementById('bndesAno');
+  bAno.forEach(a=> sA.add(new Option(a,a)));
+  const sU = document.getElementById('bndesUnidade');
+  bUni.forEach(u=> sU.add(new Option(u,u)));
+  const sI = document.getElementById('bndesIndicador');
+  bInd.forEach(i=> sI.add(new Option(i.length>50?i.slice(0,50)+'…':i, i)));
+}
+
+function resetPix(){
+  document.getElementById('pixAno').value='';
+  document.getElementById('pixMes').value='';
+  document.getElementById('pixPeriodo').value='';
+  renderPix();
+}
+function resetBndes(){
+  document.getElementById('bndesAno').value='';
+  document.getElementById('bndesUnidade').value='';
+  document.getElementById('bndesIndicador').value='';
+  renderBndes();
+}
+
+/* ============ INIT ============ */
+populateFilters();
+['pixAno','pixMes','pixPeriodo'].forEach(id=>document.getElementById(id).addEventListener('change',renderPix));
+['bndesAno','bndesUnidade','bndesIndicador'].forEach(id=>document.getElementById(id).addEventListener('change',renderBndes));
+
+renderPix();
+renderBndes();
+</script>
+</body>
+</html>
