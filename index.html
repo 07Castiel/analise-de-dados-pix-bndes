@@ -27,21 +27,26 @@
   .kpi .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
   .kpi .value{font-size:22px;font-weight:700;margin-top:6px;}
   .kpi .sub{font-size:11px;color:var(--muted);margin-top:2px;}
+  .notice{background:#fff8e1;border-left:4px solid var(--yellow);border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;line-height:1.5;color:#4a4100;}
+  .notice b{color:#252423;}
   .filters{display:flex;flex-wrap:wrap;gap:12px;align-items:center;background:var(--card);padding:12px 18px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:16px;}
   .filters label{font-size:12px;color:var(--muted);font-weight:600;}
-  .filters select{padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:#fff;min-width:130px;}
+  .filters select{padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:#fff;min-width:130px;max-width:320px;}
   .filters button{padding:6px 14px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;}
+  .filters .chk{display:flex;align-items:center;gap:6px;font-weight:600;color:var(--muted);font-size:12px;}
   .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;margin-bottom:16px;}
-  .card{background:var(--card);border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);display:flex;flex-direction:column;}
-  .card h3{font-size:13px;font-weight:600;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+  .card{background:var(--card);border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);display:flex;flex-direction:column;min-width:0;}
+  .card h3{font-size:13px;font-weight:600;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
   .card h3 span{font-size:11px;color:var(--muted);font-weight:400;}
   .col-12{grid-column:span 12;} .col-8{grid-column:span 8;} .col-6{grid-column:span 6;} .col-4{grid-column:span 4;}
   .chart-wrap{position:relative;height:300px;width:100%;}
   .chart-wrap.tall{height:340px;}
   table{width:100%;border-collapse:collapse;font-size:12px;}
-  thead th{background:#faf9f8;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);font-weight:600;color:var(--muted);position:sticky;top:0;z-index:1;}
+  thead th{background:#faf9f8;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);font-weight:600;color:var(--muted);position:sticky;top:0;z-index:1;white-space:nowrap;}
   tbody td{padding:7px 10px;border-bottom:1px solid #f3f2f1;}
   tbody tr:hover{background:#faf9f8;}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
+  td.zero{color:#a19f9d;}
   .table-scroll{max-height:420px;overflow:auto;border-radius:4px;}
   footer{text-align:center;color:var(--muted);font-size:11px;padding:12px;margin-top:8px;}
   @media(max-width:900px){.col-8,.col-6,.col-4{grid-column:span 12;}}
@@ -52,7 +57,7 @@
 <header>
   <div>
     <h1>📊 Dashboard Corporativo</h1>
-    <div class="meta">BNDES — Indicadores Estratégicos · PIX — Contestações e Fraudes</div>
+    <div class="meta">BNDES — Indicadores Estratégicos (metas) · PIX — Contestações e MED</div>
   </div>
   <div class="meta" id="clock"></div>
 </header>
@@ -66,6 +71,10 @@
 <section id="pix" class="page active">
   <div class="kpis" id="pixKpis"></div>
 
+  <div class="notice">
+    <b>Leia antes de comparar períodos:</b> a partir de <b>out/2025</b> os contestados saltam de 1,24 mi para 3,46 mi (×2,8) sem aumento equivalente de contestações aceitas, ou seja, quase todo o aumento vai para "rejeitadas". Isso sugere mudança de critério/registro, não aumento de fraude. A <b>taxa de aceitação (aceitas ÷ contestados)</b> deixa de ser comparável com a série anterior; use <b>aceitas a cada 100 mil transações</b>, que se manteve na faixa de 4 a 6. Outro ponto fora da curva: <b>dez/2022</b> tem R$ 777 mi contestados (o dobro dos vizinhos), puxado por "saldo insuficiente".
+  </div>
+
   <div class="filters">
     <label>Ano:</label>
     <select id="pixAno"><option value="">Todos</option></select>
@@ -78,6 +87,11 @@
       <option value="6">Últimos 6 meses</option>
       <option value="3">Últimos 3 meses</option>
     </select>
+    <label>Composição por:</label>
+    <select id="pixComp">
+      <option value="q">Quantidade</option>
+      <option value="v">Valor (R$)</option>
+    </select>
     <button onclick="resetPix()">Limpar filtros</button>
   </div>
 
@@ -87,12 +101,12 @@
       <div class="chart-wrap tall"><canvas id="chartPixEvolucao"></canvas></div>
     </div>
     <div class="card col-4">
-      <h3>Composição das não devoluções <span>quantidade</span></h3>
+      <h3>Composição das não devoluções <span id="compUnit">quantidade</span></h3>
       <div class="chart-wrap tall"><canvas id="chartPixComposicao"></canvas></div>
     </div>
 
     <div class="card col-6">
-      <h3>Taxa de aceitação ao longo do tempo <span>%</span></h3>
+      <h3>Taxa de aceitação × Aceitas por 100 mil transações <span>% (esq.) · por 100 mil (dir.)</span></h3>
       <div class="chart-wrap"><canvas id="chartPixTaxa"></canvas></div>
     </div>
     <div class="card col-6">
@@ -101,24 +115,34 @@
     </div>
 
     <div class="card col-6">
-      <h3>Valor contestado aceito × Valor devolvido via MED <span>R$</span></h3>
+      <h3>Valor contestado aceito × Devolvido via MED × Não recuperado <span>R$</span></h3>
       <div class="chart-wrap"><canvas id="chartPixValores"></canvas></div>
     </div>
     <div class="card col-6">
-      <h3>Percentual de devolução por mês <span>%</span></h3>
+      <h3>Percentual de devolução por mês <span>% do valor contestado · linha = média móvel 3m</span></h3>
       <div class="chart-wrap"><canvas id="chartPixPercDev"></canvas></div>
     </div>
 
     <div class="card col-12">
-      <h3>Detalhamento mensal <span>todos os campos</span></h3>
+      <h3>Para onde vai o valor contestado aceito <span>% do valor do mês · soma = 100%</span></h3>
+      <div class="chart-wrap tall"><canvas id="chartPixDecomp"></canvas></div>
+    </div>
+
+    <div class="card col-12">
+      <h3>Bloqueios cautelares — liberados × devolvidos <span>R$</span></h3>
+      <div class="chart-wrap"><canvas id="chartPixBloq"></canvas></div>
+    </div>
+
+    <div class="card col-12">
+      <h3>Detalhamento mensal <span>mais recente primeiro</span></h3>
       <div class="table-scroll">
         <table id="pixTable">
           <thead>
             <tr>
-              <th>Data</th><th>Contestados</th><th>Aceitas</th><th>Rejeitadas</th>
-              <th>Taxa Aceit. %</th><th>Taxa/100k</th><th>Usuários Fraude</th>
-              <th>Chaves Fraude</th><th>Valor Contestado</th><th>Valor Devolvido</th>
-              <th>% Devolução</th>
+              <th>Data</th><th class="num">Contestados</th><th class="num">Aceitas</th><th class="num">Rejeitadas</th>
+              <th class="num">Taxa aceit. %</th><th class="num">Aceitas/100k</th><th class="num">Usuários fraude</th>
+              <th class="num">Chaves fraude</th><th class="num">Valor contestado</th><th class="num">Devolvido MED</th>
+              <th class="num">% Devolução</th><th class="num">Não recuperado</th><th class="num">Bloq. liberados</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -132,38 +156,41 @@
 <section id="bndes" class="page">
   <div class="kpis" id="bndesKpis"></div>
 
+  <div class="notice">
+    <b>Como ler:</b> o arquivo de origem é uma tabela dinâmica de <b>"Soma de meta"</b>, ou seja, são <b>metas</b> dos indicadores estratégicos, não resultados realizados. Os indicadores mudaram de nome (e de unidade) ao longo dos anos; aqui eles foram <b>unificados</b> e convertidos para uma unidade comum (R$ mil e R$ bilhões viram R$ milhões). Valores de unidades diferentes <b>nunca são somados</b>. Muitas metas aparecem como <b>0</b>, o que provavelmente significa "sem meta informada" e não meta zero; por isso o filtro abaixo vem marcado para ocultá-las.
+  </div>
+
   <div class="filters">
+    <label>Unidade:</label>
+    <select id="bndesUnidade"></select>
     <label>Ano:</label>
     <select id="bndesAno"><option value="">Todos</option></select>
-    <label>Unidade:</label>
-    <select id="bndesUnidade"><option value="">Todas</option></select>
     <label>Indicador:</label>
     <select id="bndesIndicador"><option value="">Todos</option></select>
+    <label class="chk"><input type="checkbox" id="bndesZero" checked> Ocultar metas = 0</label>
     <button onclick="resetBndes()">Limpar filtros</button>
   </div>
 
   <div class="grid">
     <div class="card col-8">
-      <h3>Top 15 indicadores por valor <span>conforme filtros</span></h3>
+      <h3 id="topTitle">Top 15 indicadores <span id="topSub"></span></h3>
       <div class="chart-wrap tall"><canvas id="chartBndesTop"></canvas></div>
     </div>
     <div class="card col-4">
-      <h3>Distribuição por unidade <span>contagem</span></h3>
+      <h3>Indicadores por unidade <span>contagem de indicadores</span></h3>
       <div class="chart-wrap tall"><canvas id="chartBndesUnidade"></canvas></div>
     </div>
 
     <div class="card col-12">
-      <h3>Evolução por ano <span>soma dos valores filtrados</span></h3>
+      <h3 id="evoTitle">Evolução por ano <span id="evoSub"></span></h3>
       <div class="chart-wrap"><canvas id="chartBndesAno"></canvas></div>
     </div>
 
     <div class="card col-12">
-      <h3>Base completa — BNDES <span>indicador, ano, valor, unidade</span></h3>
+      <h3>Base consolidada — BNDES <span>meta por ano · nomes originais no tooltip da primeira coluna</span></h3>
       <div class="table-scroll">
         <table id="bndesTable">
-          <thead>
-            <tr><th>Indicador</th><th>Ano</th><th>Valor</th><th>Unidade</th></tr>
-          </thead>
+          <thead id="bndesHead"></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -171,206 +198,50 @@
   </div>
 </section>
 
-<footer>Fonte: BNDES · Banco Central (PIX/MED) · Dashboard HTML + Chart.js</footer>
+<footer>Fonte: BNDES (indicadores estratégicos corporativos, metas) · Banco Central (PIX/MED) · Dashboard HTML + Chart.js</footer>
 
 <script>
-/* ============ RELÓGIO ============ */
-document.getElementById('clock').textContent = new Date().toLocaleString('pt-BR');
+/* ============ DADOS (gerados dos CSVs originais) ============ */
+const PIX = [{"d":"202201","c":71508,"a":57777,"r":13731,"t100":5.284,"uf":22507,"cf":24811,"vc":122558868.28,"qi":5673,"vi":4261762.1,"qp":12396,"vp":2227049.21,"res":30642980.34,"qs":30679,"vs":62078174.01,"qe":5074,"ve":15573593.85,"qd":3955,"vd":7775308.77,"pd":5.29,"qbl":35045,"vbl":24780856.85,"qbd":20904,"vbd":10049037.94},{"d":"202202","c":78636,"a":60680,"r":17956,"t100":5.22,"uf":23984,"cf":25883,"vc":136034158.58,"qi":5301,"vi":5355273.06,"qp":12710,"vp":2792891.25,"res":36512804.21,"qs":33078,"vs":64183561.85,"qe":6190,"ve":17471344.77,"qd":3401,"vd":9718283.44,"pd":5.99,"qbl":35082,"vbl":29383993.38,"qbd":19507,"vbd":11319480.0},{"d":"202203","c":134963,"a":105015,"r":29948,"t100":7.708,"uf":35590,"cf":39074,"vc":216939856.12,"qi":11074,"vi":10998092.06,"qp":19244,"vp":6013211.68,"res":53390491.71,"qs":53516,"vs":102721129.78,"qe":13035,"ve":22737501.12,"qd":8146,"vd":21079429.77,"pd":7.84,"qbl":28239,"vbl":17914248.63,"qbd":23376,"vbd":10421977.05},{"d":"202204","c":152636,"a":114763,"r":37873,"t100":8.082,"uf":32356,"cf":35552,"vc":178163735.34,"qi":11816,"vi":8494563.65,"qp":16606,"vp":3582905.43,"res":35551526.02,"qs":52193,"vs":80683685.64,"qe":24293,"ve":31755819.62,"qd":9855,"vd":18095234.98,"pd":6.78,"qbl":26460,"vbl":22823420.1,"qbd":15415,"vbd":12057882.31},{"d":"202205","c":229401,"a":149006,"r":80395,"t100":9.46,"uf":35454,"cf":39301,"vc":224862932.69,"qi":12682,"vi":8179939.0,"qp":21155,"vp":4156913.48,"res":48022136.81,"qs":60416,"vs":95495330.17,"qe":43379,"ve":47191483.62,"qd":11374,"vd":21817129.61,"pd":5.49,"qbl":27002,"vbl":29038731.29,"qbd":15715,"vbd":13576390.05},{"d":"202206","c":190206,"a":146526,"r":43680,"t100":8.969,"uf":38126,"cf":42340,"vc":223677609.87,"qi":14496,"vi":15034322.97,"qp":24087,"vp":4462077.23,"res":51696995.11,"qs":64210,"vs":106415826.85,"qe":36153,"ve":31009773.99,"qd":7580,"vd":15058613.72,"pd":8.72,"qbl":32811,"vbl":33167882.59,"qbd":18467,"vbd":17579643.41},{"d":"202207","c":186056,"a":142493,"r":43563,"t100":8.143,"uf":38742,"cf":42601,"vc":213715054.18,"qi":14196,"vi":9793327.15,"qp":25003,"vp":4361098.23,"res":53735560.12,"qs":67988,"vs":110122475.65,"qe":27813,"ve":19687049.22,"qd":7493,"vd":16015543.81,"pd":6.62,"qbl":34405,"vbl":37857432.76,"qbd":18602,"vbd":17093850.35},{"d":"202208","c":218131,"a":155021,"r":63110,"t100":8.339,"uf":41737,"cf":43824,"vc":233907823.75,"qi":17412,"vi":10759053.55,"qp":26429,"vp":4878295.45,"res":60227217.75,"qs":96609,"vs":132036028.33,"qe":6372,"ve":7950282.81,"qd":8199,"vd":18056945.86,"pd":6.69,"qbl":49015,"vbl":91541170.38,"qbd":17540,"vbd":15113669.91},{"d":"202209","c":196376,"a":137731,"r":58645,"t100":7.167,"uf":40907,"cf":44950,"vc":220824276.9,"qi":14856,"vi":12832651.52,"qp":27792,"vp":6476548.2,"res":59960422.07,"qs":83451,"vs":118977922.78,"qe":3758,"ve":5635763.97,"qd":7874,"vd":16940968.36,"pd":8.74,"qbl":764838,"vbl":2416123454.85,"qbd":17978,"vbd":19775721.36},{"d":"202210","c":199364,"a":147113,"r":52251,"t100":7.18,"uf":42511,"cf":45795,"vc":232190741.27,"qi":14840,"vi":15522803.17,"qp":30768,"vp":6667304.82,"res":66006092.49,"qs":84845,"vs":115100297.48,"qe":3066,"ve":4548681.65,"qd":13594,"vd":24345561.66,"pd":9.56,"qbl":1057638,"vbl":3385436880.05,"qbd":17377,"vbd":21824839.66},{"d":"202211","c":215663,"a":155175,"r":60488,"t100":7.376,"uf":43412,"cf":46983,"vc":243995119.62,"qi":14426,"vi":13685909.73,"qp":33648,"vp":6575795.57,"res":68845684.75,"qs":82176,"vs":125224549.55,"qe":3266,"ve":4412596.66,"qd":21659,"vd":25250583.36,"pd":8.3,"qbl":709026,"vbl":2421843031.51,"qbd":17194,"vbd":23638676.36},{"d":"202212","c":272183,"a":184605,"r":87578,"t100":7.618,"uf":50625,"cf":55045,"vc":777577423.07,"qi":16987,"vi":14551837.02,"qp":37553,"vp":7705261.98,"res":84157455.25,"qs":99919,"vs":624318329.56,"qe":3745,"ve":5705066.08,"qd":26401,"vd":41139473.18,"pd":2.86,"qbl":634734,"vbl":2076862058.94,"qbd":15423,"vbd":24634551.76},{"d":"202301","c":208926,"a":140714,"r":68212,"t100":6.446,"uf":47610,"cf":53713,"vc":254667303.59,"qi":14719,"vi":12605085.82,"qp":38578,"vp":7222005.07,"res":86746595.81,"qs":71212,"vs":124930478.62,"qe":3005,"ve":4200532.56,"qd":13200,"vd":18962605.71,"pd":7.79,"qbl":525446,"vbl":1788573674.55,"qbd":13319,"vbd":18416367.69},{"d":"202302","c":210490,"a":141113,"r":69377,"t100":6.552,"uf":43825,"cf":49611,"vc":248907251.4,"qi":13978,"vi":14631634.06,"qp":35781,"vp":9850732.78,"res":82009265.44,"qs":79724,"vs":123973392.52,"qe":2359,"ve":3750191.95,"qd":9271,"vd":14692034.65,"pd":9.84,"qbl":505719,"vbl":1680164547.27,"qbd":14459,"vbd":24258552.18},{"d":"202303","c":278690,"a":185654,"r":93036,"t100":7.292,"uf":51265,"cf":58049,"vc":322778922.86,"qi":19288,"vi":17933410.5,"qp":45085,"vp":10048680.76,"res":103333638.69,"qs":108653,"vs":165860596.64,"qe":2759,"ve":3545763.75,"qd":9869,"vd":22056832.52,"pd":8.67,"qbl":581218,"vbl":1937159125.06,"qbd":15723,"vbd":21052793.56},{"d":"202304","c":272840,"a":179832,"r":93008,"t100":7.139,"uf":51274,"cf":57209,"vc":340301283.61,"qi":17684,"vi":17104572.55,"qp":42461,"vp":13630556.5,"res":99709372.14,"qs":103331,"vs":178103521.43,"qe":3437,"ve":5156941.41,"qd":12919,"vd":26596319.58,"pd":9.03,"qbl":545284,"vbl":1796742364.69,"qbd":19054,"vbd":18918241.3},{"d":"202305","c":371822,"a":261416,"r":110406,"t100":9.475,"uf":59510,"cf":68852,"vc":421946678.04,"qi":23616,"vi":29141561.1,"qp":48335,"vp":10030452.15,"res":105307394.76,"qs":163335,"vs":235659170.02,"qe":5521,"ve":6227236.58,"qd":20609,"vd":35580863.43,"pd":9.28,"qbl":848336,"vbl":2270163258.59,"qbd":27916,"vbd":25564788.55},{"d":"202306","c":343010,"a":201734,"r":141276,"t100":7.058,"uf":56600,"cf":64709,"vc":319735983.5,"qi":20565,"vi":19854822.46,"qp":45271,"vp":10014782.56,"res":92348212.06,"qs":112667,"vs":168997894.0,"qe":5427,"ve":6521280.82,"qd":17804,"vd":21998991.6,"pd":9.34,"qbl":642657,"vbl":2057838701.9,"qbd":38280,"vbd":25447693.6},{"d":"202307","c":403428,"a":230453,"r":172975,"t100":7.488,"uf":64624,"cf":73461,"vc":343271986.06,"qi":20711,"vi":19533694.57,"qp":48569,"vp":9576716.17,"res":96756107.98,"qs":142985,"vs":187038117.88,"qe":10104,"ve":11787422.19,"qd":8084,"vd":18579927.27,"pd":8.48,"qbl":741278,"vbl":2514488052.85,"qbd":25250,"vbd":27236857.68},{"d":"202308","c":417673,"a":232593,"r":185080,"t100":7.095,"uf":62877,"cf":70678,"vc":410383099.54,"qi":19877,"vi":21458142.76,"qp":45482,"vp":11059998.24,"res":103117215.0,"qs":146737,"vs":241494191.57,"qe":9327,"ve":11167749.01,"qd":11170,"vd":22085802.96,"pd":7.92,"qbl":822115,"vbl":2881497983.35,"qbd":22109,"vbd":25699809.96},{"d":"202309","c":416665,"a":220849,"r":195816,"t100":6.59,"uf":56983,"cf":63594,"vc":387570686.82,"qi":25922,"vi":21169202.08,"qp":40415,"vp":10444199.74,"res":98169251.11,"qs":138909,"vs":233421387.01,"qe":6924,"ve":8601110.1,"qd":8679,"vd":15765536.78,"pd":8.16,"qbl":809754,"vbl":2982357094.08,"qbd":16913,"vbd":18374840.38},{"d":"202310","c":477914,"a":244351,"r":233563,"t100":6.874,"uf":58174,"cf":64833,"vc":455754645.95,"qi":31365,"vi":25891679.47,"qp":42908,"vp":15502650.07,"res":103177021.25,"qs":156848,"vs":284472098.84,"qe":4420,"ve":6760640.81,"qd":8810,"vd":19950555.51,"pd":9.08,"qbl":856152,"vbl":3268296893.56,"qbd":18276,"vbd":24114675.31},{"d":"202311","c":503380,"a":238073,"r":265307,"t100":6.425,"uf":63898,"cf":70745,"vc":442347741.2,"qi":30442,"vi":35898697.93,"qp":42234,"vp":11692951.96,"res":95357599.93,"qs":150118,"vs":264617274.14,"qe":4602,"ve":5895454.34,"qd":10677,"vd":28885762.9,"pd":10.76,"qbl":871656,"vbl":3336258592.05,"qbd":20972,"vbd":19489843.81},{"d":"202312","c":650701,"a":297341,"r":353360,"t100":7.057,"uf":68487,"cf":75550,"vc":405936605.9,"qi":63318,"vi":28032339.98,"qp":42314,"vp":8458293.45,"res":79613494.61,"qs":172457,"vs":255843734.63,"qe":3409,"ve":4209982.92,"qd":15843,"vd":29778760.31,"pd":8.99,"qbl":1086026,"vbl":3970239966.5,"qbd":20449,"vbd":20432726.93},{"d":"202401","c":795616,"a":346693,"r":448923,"t100":9.004,"uf":72733,"cf":80283,"vc":474119643.07,"qi":88862,"vi":27264748.79,"qp":43479,"vp":12637741.47,"res":103901589.49,"qs":198643,"vs":298215764.79,"qe":2397,"ve":3884895.11,"qd":13312,"vd":28214903.42,"pd":8.42,"qbl":962419,"vbl":3453892895.09,"qbd":59130,"vbd":40638076.69},{"d":"202402","c":684123,"a":286689,"r":397434,"t100":7.452,"uf":66246,"cf":73057,"vc":420843695.16,"qi":54685,"vi":20329838.97,"qp":38379,"vp":10869219.34,"res":85507804.49,"qs":182946,"vs":280826402.92,"qe":2464,"ve":3313131.14,"qd":8223,"vd":19997298.3,"pd":7.41,"qbl":872943,"vbl":3420815999.64,"qbd":38597,"vbd":31522531.67},{"d":"202403","c":757577,"a":323645,"r":433932,"t100":7.487,"uf":72308,"cf":80709,"vc":552456187.49,"qi":66372,"vi":29350165.04,"qp":44421,"vp":15658177.55,"res":117722835.38,"qs":197298,"vs":351765152.56,"qe":4641,"ve":7093952.63,"qd":10913,"vd":30865904.33,"pd":8.15,"qbl":965220,"vbl":3860776510.74,"qbd":31832,"vbd":35621720.65},{"d":"202404","c":780242,"a":330887,"r":449355,"t100":7.615,"uf":72062,"cf":80430,"vc":451711293.76,"qi":61539,"vi":23131456.96,"qp":41572,"vp":10640500.52,"res":91696413.18,"qs":207254,"vs":282777552.33,"qe":4978,"ve":10107212.72,"qd":15544,"vd":33358158.05,"pd":7.48,"qbl":1087652,"vbl":4310520474.61,"qbd":32729,"vbd":55170664.3},{"d":"202405","c":841711,"a":346370,"r":495341,"t100":7.496,"uf":78884,"cf":87450,"vc":537340697.53,"qi":51410,"vi":29102491.12,"qp":41749,"vp":18368850.46,"res":109807160.53,"qs":225186,"vs":315625621.49,"qe":7460,"ve":9979213.15,"qd":20565,"vd":54457360.78,"pd":8.83,"qbl":1073109,"vbl":4119718259.69,"qbd":70283,"vbd":111371844.17},{"d":"202406","c":924449,"a":378357,"r":546092,"t100":8.124,"uf":81241,"cf":89468,"vc":458419507.54,"qi":69067,"vi":26670045.76,"qp":42065,"vp":12659754.68,"res":100631663.56,"qs":242595,"vs":280311264.93,"qe":7589,"ve":9915124.81,"qd":17041,"vd":28231653.8,"pd":8.58,"qbl":1125431,"vbl":4273620581.18,"qbd":177834,"vbd":92730251.24},{"d":"202407","c":1176263,"a":530753,"r":645510,"t100":11.088,"uf":100793,"cf":112691,"vc":570192961.96,"qi":104935,"vi":29139817.57,"qp":55341,"vp":14460769.97,"res":125571315.72,"qs":336459,"vs":358139703.79,"qe":12787,"ve":10492396.85,"qd":21231,"vd":32388958.06,"pd":7.65,"qbl":1389278,"vbl":4102671832.98,"qbd":138672,"vbd":63195271.79},{"d":"202408","c":1146697,"a":517930,"r":628767,"t100":10.339,"uf":97290,"cf":110039,"vc":841884565.49,"qi":100372,"vi":51285171.91,"qp":56244,"vp":31845147.72,"res":192182115.28,"qs":325681,"vs":462450530.94,"qe":19518,"ve":28952813.32,"qd":16115,"vd":75168786.32,"pd":9.87,"qbl":1123852,"vbl":1782124682.87,"qbd":183984,"vbd":75042406.83},{"d":"202409","c":1159575,"a":479645,"r":679930,"t100":9.799,"uf":97114,"cf":107204,"vc":581604033.67,"qi":106211,"vi":28637603.24,"qp":53762,"vp":12713161.28,"res":113296665.29,"qs":286864,"vs":389837177.85,"qe":21380,"ve":16802541.79,"qd":11428,"vd":20316884.22,"pd":7.11,"qbl":1148756,"vbl":1831473716.97,"qbd":145244,"vbd":44386085.85},{"d":"202410","c":1262997,"a":494691,"r":768306,"t100":9.707,"uf":103508,"cf":116607,"vc":628578936.77,"qi":122792,"vi":39914254.85,"qp":62535,"vp":15032820.27,"res":149179295.99,"qs":286993,"vs":387500452.18,"qe":8646,"ve":7460872.65,"qd":13725,"vd":29491240.83,"pd":8.74,"qbl":1378029,"vbl":1838605645.42,"qbd":166090,"vbd":110695319.13},{"d":"202411","c":1408727,"a":492066,"r":916661,"t100":9.515,"uf":119787,"cf":136511,"vc":628694403.03,"qi":54160,"vi":24548545.83,"qp":67502,"vp":15490359.03,"res":148327917.27,"qs":326645,"vs":406772752.41,"qe":17524,"ve":11105957.26,"qd":26235,"vd":22448871.23,"pd":6.37,"qbl":1501594,"vbl":1853547052.77,"qbd":153860,"vbd":56477502.31},{"d":"202412","c":1356959,"a":384501,"r":972458,"t100":6.734,"uf":109438,"cf":122638,"vc":541233671.86,"qi":50368,"vi":27761889.91,"qp":61259,"vp":15069643.36,"res":133465270.81,"qs":245855,"vs":315814973.46,"qe":9374,"ve":9441823.49,"qd":17645,"vd":39680070.83,"pd":7.91,"qbl":1819851,"vbl":3048110825.94,"qbd":153870,"vbd":71745569.44},{"d":"202501","c":1343369,"a":369828,"r":973541,"t100":7.308,"uf":102416,"cf":113777,"vc":543390959.36,"qi":80327,"vi":28834067.69,"qp":62688,"vp":37215403.91,"res":143463886.95,"qs":204394,"vs":301263670.95,"qe":6762,"ve":7171720.92,"qd":15657,"vd":25442208.94,"pd":12.16,"qbl":1782209,"vbl":2736819505.45,"qbd":155642,"vbd":69017998.47},{"d":"202502","c":1101789,"a":352628,"r":749161,"t100":7.073,"uf":93754,"cf":102212,"vc":661738440.62,"qi":89039,"vi":20715832.37,"qp":57854,"vp":12267767.4,"res":211162155.79,"qs":186080,"vs":377451669.27,"qe":4913,"ve":5987572.0,"qd":14742,"vd":34153443.79,"pd":4.98,"qbl":1105557,"vbl":2319125350.73,"qbd":171470,"vbd":137670045.73},{"d":"202503","c":1237573,"a":347156,"r":890417,"t100":6.239,"uf":99930,"cf":108630,"vc":564202596.56,"qi":79557,"vi":18537850.49,"qp":61426,"vp":10213257.41,"res":193180777.55,"qs":185539,"vs":308229638.62,"qe":4934,"ve":5573613.15,"qd":15700,"vd":28467459.34,"pd":5.1,"qbl":1323202,"vbl":2486389426.35,"qbd":142680,"vbd":78883122.82},{"d":"202504","c":1393658,"a":372501,"r":1021157,"t100":6.654,"uf":101924,"cf":110426,"vc":603533084.35,"qi":80425,"vi":46416988.07,"qp":61822,"vp":21070310.64,"res":171979806.98,"qs":213292,"vs":333728078.26,"qe":6685,"ve":7864899.3,"qd":10277,"vd":22473001.1,"pd":11.18,"qbl":1496668,"vbl":1875468163.06,"qbd":361995,"vbd":136605262.72},{"d":"202505","c":1361178,"a":308964,"r":1052214,"t100":5.21,"uf":98893,"cf":107022,"vc":485908114.81,"qi":48643,"vi":38849444.74,"qp":62196,"vp":15702065.46,"res":138655117.58,"qs":183181,"vs":264411463.27,"qe":5622,"ve":9604485.28,"qd":9322,"vd":18685538.48,"pd":11.23,"qbl":2142208,"vbl":2001599258.22,"qbd":147043,"vbd":119820677.55},{"d":"202506","c":1258832,"a":293725,"r":965107,"t100":5.065,"uf":92693,"cf":100617,"vc":671387752.5,"qi":40093,"vi":34476615.69,"qp":58223,"vp":18910916.07,"res":185680011.84,"qs":169625,"vs":317384512.26,"qe":11773,"ve":8884966.91,"qd":14011,"vd":106050729.73,"pd":7.95,"qbl":1978649,"vbl":2264774419.57,"qbd":124615,"vbd":149363424.03},{"d":"202507","c":1328140,"a":325959,"r":1002181,"t100":5.435,"uf":106482,"cf":117218,"vc":698566565.98,"qi":57479,"vi":40389809.35,"qp":68581,"vp":28921543.8,"res":217386184.23,"qs":176413,"vs":345866356.42,"qe":6961,"ve":12980548.19,"qd":16525,"vd":53022123.99,"pd":9.92,"qbl":1674847,"vbl":1950942151.81,"qbd":104320,"vbd":69748263.41},{"d":"202508","c":1233716,"a":285354,"r":948362,"t100":4.573,"uf":99151,"cf":108573,"vc":727671388.95,"qi":48047,"vi":61592739.4,"qp":66563,"vp":26469176.43,"res":237912863.59,"qs":154401,"vs":311768691.54,"qe":5964,"ve":13935492.94,"qd":10379,"vd":75992425.05,"pd":12.1,"qbl":609171,"vbl":1428395887.3,"qbd":573308,"vbd":184257268.52},{"d":"202509","c":1243173,"a":298712,"r":944461,"t100":4.87,"uf":95145,"cf":103690,"vc":610598393.15,"qi":47398,"vi":34541200.24,"qp":61889,"vp":16473448.32,"res":198279974.95,"qs":168610,"vs":317597358.2,"qe":6140,"ve":9160789.52,"qd":14675,"vd":34545621.92,"pd":8.35,"qbl":457831,"vbl":1618157239.94,"qbd":134504,"vbd":70257353.52},{"d":"202510","c":3455796,"a":367845,"r":3087951,"t100":5.7,"uf":130581,"cf":138425,"vc":769478130.37,"qi":64144,"vi":45096064.71,"qp":77223,"vp":25520378.39,"res":231032775.77,"qs":202683,"vs":406204948.07,"qe":8918,"ve":8753124.76,"qd":14877,"vd":52870838.67,"pd":9.18,"qbl":1211584,"vbl":2557165061.26,"qbd":498353,"vbd":129532059.74},{"d":"202511","c":3505010,"a":288579,"r":3216431,"t100":4.467,"uf":108678,"cf":114767,"vc":859859976.12,"qi":49418,"vi":39059779.89,"qp":65754,"vp":19768616.22,"res":206225511.72,"qs":152014,"vs":477280642.45,"qe":8155,"ve":33350600.32,"qd":13238,"vd":84174825.52,"pd":6.84,"qbl":698446,"vbl":2212438887.07,"qbd":418580,"vbd":155439048.12},{"d":"202512","c":3771666,"a":322535,"r":3449131,"t100":4.544,"uf":105166,"cf":110831,"vc":573884285.38,"qi":52797,"vi":36933198.18,"qp":66964,"vp":18143483.07,"res":177840682.32,"qs":183232,"vs":303013333.66,"qe":8235,"ve":8299089.51,"qd":11307,"vd":29654498.64,"pd":9.6,"qbl":530773,"vbl":3082295953.9,"qbd":354882,"vbd":80826967.84},{"d":"202601","c":3181210,"a":279045,"r":2902165,"t100":4.385,"uf":92490,"cf":98573,"vc":723028812.55,"qi":43622,"vi":66090325.44,"qp":56315,"vp":45284406.04,"res":189741024.85,"qs":154916,"vs":355850317.79,"qe":9400,"ve":12358751.79,"qd":14792,"vd":53703986.64,"pd":15.4,"qbl":457528,"vbl":1938631701.09,"qbd":302819,"vbd":92837232.68},{"d":"202602","c":2813735,"a":281590,"r":2532145,"t100":4.704,"uf":86913,"cf":92233,"vc":655815446.71,"qi":43000,"vi":58312146.87,"qp":52314,"vp":28965231.21,"res":181486022.16,"qs":142869,"vs":305146242.28,"qe":31493,"ve":14335034.01,"qd":11915,"vd":67570770.18,"pd":13.31,"qbl":522579,"vbl":3468396985.0,"qbd":294267,"vbd":106398755.23},{"d":"202603","c":2925122,"a":308793,"r":2616329,"t100":4.58,"uf":95005,"cf":101284,"vc":705387976.55,"qi":43929,"vi":65660724.21,"qp":55532,"vp":27370647.62,"res":171014589.84,"qs":193825,"vs":402955123.29,"qe":7498,"ve":11501938.4,"qd":8040,"vd":26884953.19,"pd":13.19,"qbl":585679,"vbl":4401783932.85,"qbd":318056,"vbd":132539711.25},{"d":"202604","c":2960234,"a":283016,"r":2677218,"t100":4.236,"uf":87892,"cf":94173,"vc":598266370.36,"qi":39230,"vi":74635383.13,"qp":51799,"vp":22445603.71,"res":149959523.05,"qs":172927,"vs":309162907.25,"qe":8584,"ve":12784586.62,"qd":10477,"vd":29278366.6,"pd":16.23,"qbl":498417,"vbl":5485194736.57,"qbd":201040,"vbd":111441791.31}];
+const BNDES = [{"n":"# de operações automáticas","u":"Quantidade","s":{"2018":72274.0,"2019":54665.0},"o":[{"l":"# de operações automáticas","u":"Quantidade"}]},{"n":"# de operações não automáticas","u":"Quantidade","s":{"2018":836.0,"2019":496.0},"o":[{"l":"# de operações não automáticas","u":"Quantidade"}]},{"n":"% de operações aprovadas em até 180 dias","u":"%","s":{"2018":0.0},"o":[{"l":"% de operações aprovadas em até 180 dias","u":"%"}]},{"n":"Apoio a Educação, Saúde e Segurança","u":"R$ milhões","s":{"2018":0.0,"2019":0.0},"o":[{"l":"Apoio a Educação, Saúde e Segurança","u":"Quantidade"},{"l":"Apoio a Educação, Saúde e Segurança (em bilhões)","u":"R$ bilhões"}]},{"n":"Aprovações em temas prioritários","u":"Índice","s":{"2017":0.0},"o":[{"l":"Aprovações em temas prioritários (Prioridades estratégicas) (Peso: 0,2)","u":"Índice"}]},{"n":"Avanço na adoção do Quadro de Resultados (QR)","u":"Índice","s":{"2017":0.0},"o":[{"l":"Avanço na adoção do Quadro de Resultados (QR) (Prioridades estratégicas) (Peso: 0,2)","u":"Índice"}]},{"n":"Carteira de Fundos de Investimento","u":"R$ milhões","s":{"2018":0.0,"2019":0.0},"o":[{"l":"Carteira de Fundos de Investimento","u":"Quantidade"},{"l":"Carteira de Fundos de Investimento (em bilhões)","u":"R$ bilhões"}]},{"n":"Quantidade de clientes financiados por cooperativas de crédito","u":"Quantidade","s":{"2023":88000.0,"2024":128749.0,"2025":164000.0},"o":[{"l":"Clientes Financiados por Cooperativas de Crédito","u":"Quantidade"},{"l":"Quantidade de clientes financiados por cooperativas de crédito","u":"Quantidade"}]},{"n":"Quantidade de clientes MPMEs e PFs apoiados com crédito","u":"Quantidade","s":{"2023":127000.0,"2024":172380.0,"2025":228000.0},"o":[{"l":"Clientes MPMEs e PFs Apoiados com Crédito","u":"Quantidade"},{"l":"Quantidade de clientes MPMEs e PFs apoiados com crédito","u":"Quantidade"}]},{"n":"Contratação, ambientação e alocação de novos empregados","u":"Quantidade","s":{"2025":600.0},"o":[{"l":"Contratação, ambientação e alocação de novos empregados","u":"Quantidade"}]},{"n":"Contratações em infraestrutura - CIN","u":"R$ milhões","s":{"2020":19000.0},"o":[{"l":"Contratações em infraestrutura - CIN (R$ milhões)","u":"R$ milhões"}]},{"n":"Crédito para MPMEs e PFs em Produtos de Garantias","u":"R$ milhões","s":{"2023":24000.0},"o":[{"l":"Crédito para MPMEs e PFs em Produtos de Garantias (R$ milhões)","u":"R$ milhões"}]},{"n":"Desembolso em Desenvolvimento Regional","u":"R$ milhões","s":{"2018":0.0,"2019":0.0},"o":[{"l":"Desembolso em Desenvolvimento Regional","u":"Quantidade"},{"l":"Desembolso em Desenvolvimento Regional (em bilhões)","u":"R$ bilhões"}]},{"n":"Desembolso em Estrutura Produtiva","u":"R$ milhões","s":{"2018":0.0,"2019":0.0},"o":[{"l":"Desembolso em Estrutura Produtiva","u":"Quantidade"},{"l":"Desembolso em Estrutura Produtiva (em bilhões)","u":"R$ bilhões"}]},{"n":"Desembolso em Infraestrutura","u":"R$ milhões","s":{"2018":0.0,"2019":30000.0},"o":[{"l":"Desembolso em Infraestrutura","u":"Quantidade"},{"l":"Desembolso em Infraestrutura (em bilhões)","u":"R$ bilhões"}]},{"n":"Desembolso em Inovação","u":"R$ milhões","s":{"2018":0.0,"2019":2000.0},"o":[{"l":"Desembolso em Inovação","u":"Quantidade"},{"l":"Desembolso em Inovação (em bilhões)","u":"R$ bilhões"}]},{"n":"Desembolso em Sustentabilidade","u":"R$ milhões","s":{"2018":0.0,"2019":16000.0},"o":[{"l":"Desembolso em Sustentabilidade","u":"Quantidade"},{"l":"Desembolso em Sustentabilidade (em bilhões)","u":"R$ bilhões"}]},{"n":"Desembolso para MPMEs e Pessoa Física","u":"R$ milhões","s":{"2019":26226.0},"o":[{"l":"Desembolso para MPMEs e Pessoa Física (em milhões)","u":"R$ milhões"}]},{"n":"Despesas Administrativas e de Pessoal","u":"R$ milhões","s":{"2019":2339.635,"2020":2204.0,"2021":2449.221,"2023":3124.842},"o":[{"l":"Despesa Administrativa e de Pessoal (em R$ mil)","u":"R$ mil"},{"l":"Despesas Administrativa e de Pessoal (R$ mil)","u":"R$ mil"},{"l":"Despesas administrativas e de pessoal - DAP (R$ milhões)","u":"R$ milhões"},{"l":"Despesas Administrativas e de Pessoal (R$ mil)","u":"R$ mil"}]},{"n":"Despesas Administrativas e de Pessoal por Ativo Total Médio","u":"Índice","s":{"2024":0.0,"2025":0.0},"o":[{"l":"Despesas Administrativas e de Pessoal por Ativo Total Médio","u":"Índice"}]},{"n":"Entrega de estudos de estruturação de projetos","u":"Índice","s":{"2017":0.0},"o":[{"l":"Entrega de estudos de estruturação de projetos (Prioridades estratégicas) (Peso: 0,2)","u":"Índice"}]},{"n":"Estudos de estruturação de projetos","u":"Quantidade","s":{"2018":0.0},"o":[{"l":"Estudos de estruturação de projetos","u":"Quantidade"}]},{"n":"Fábrica de Projetos e Desestatização (Qtd de marcos)","u":"Quantidade","s":{"2020":100.0,"2021":90.0,"2022":300.0},"o":[{"l":"Fábrica de Projetos e Desestatização - FPD (número de marcos)","u":"Quantidade"},{"l":"Fábrica de Projetos e Desestatização (Qtd. de marcos)","u":"Quantidade"},{"l":"Fábrica de Projetos e Desestatização (Qtd de marcos)","u":"Quantidade"}]},{"n":"Implementação planos de ação para atendimento a recomendações dos órgãos de controle","u":"Índice","s":{"2017":0.0},"o":[{"l":"Implementação planos de ação para atendimento a recomendações dos órgãos de controle (Prioridades estratégicas) (Peso: 0,1)","u":"Índice"}]},{"n":"Índice de Eficiência","u":"R$ milhões","s":{"2018":0.0,"2019":0.0},"o":[{"l":"Índice de Eficiência","u":"Índice"},{"l":"Índice de Eficiência (em R$ mil)","u":"R$ mil"}]},{"n":"Índice de Eficiência em R$","u":"Índice","s":{"2017":0.0},"o":[{"l":"Índice de Eficiência em R$ (Sustentabilidade financeira)","u":"Índice"}]},{"n":"Marcos de Estruturação de Projetos","u":"Quantidade","s":{"2024":65.0},"o":[{"l":"Marcos de Estruturação de Projetos","u":"Quantidade"}]},{"n":"Marcos de estruturação de projetos com foco ambiental e climático","u":"Quantidade","s":{"2023":19.0,"2025":9.0},"o":[{"l":"Marcos de estruturação de projetos com foco ambiental e climático","u":"Quantidade"}]},{"n":"Marcos de estruturação de projetos com foco social","u":"Quantidade","s":{"2024":31.0,"2025":27.0},"o":[{"l":"Marcos de estruturação de projetos com foco social","u":"Quantidade"}]},{"n":"Marcos de estruturação de projetos de infraestrutura","u":"Quantidade","s":{"2023":17.0,"2024":21.0,"2025":32.0},"o":[{"l":"Marcos de estruturação de projetos de infraestrutura","u":"Quantidade"}]},{"n":"Marcos de Estruturação de Projetos de Infraestrutura Social","u":"Quantidade","s":{"2023":29.0},"o":[{"l":"Marcos de Estruturação de Projetos de Infraestrutura Social","u":"Quantidade"}]},{"n":"Marcos de estruturação de projetos executados","u":"Quantidade","s":{"2025":68.0},"o":[{"l":"Marcos de estruturação de projetos executados","u":"Quantidade"}]},{"n":"Marcos de Estruturação Projetos Foco Ambiental e Climático","u":"Quantidade","s":{"2024":13.0},"o":[{"l":"Marcos de Estruturação Projetos Foco Ambiental e Climático","u":"Quantidade"}]},{"n":"Número de Operações Aprovadas de Infraestrutura (Qtd.)","u":"Quantidade","s":{"2021":26.0},"o":[{"l":"Número de Operações Aprovadas de Infraestrutura (Qtd.)","u":"Quantidade"}]},{"n":"Operações com Foco Ambiental e Climático","u":"Quantidade","s":{"2023":63.0},"o":[{"l":"Operações com Foco Ambiental e Climático","u":"Quantidade"}]},{"n":"Operações com Foco Social","u":"Quantidade","s":{"2023":22.0},"o":[{"l":"Operações com Foco Social","u":"Quantidade"}]},{"n":"Operações de Exportação","u":"Quantidade","s":{"2023":110.0},"o":[{"l":"Operações de Exportação","u":"Quantidade"}]},{"n":"Operações de Garantia e de Instrumentos Alternativos (Qtd)","u":"Quantidade","s":{"2022":30.0},"o":[{"l":"Operações de Garantia e de Instrumentos Alternativos (Qtd)","u":"Quantidade"}]},{"n":"Operações do Fundo Amazônia e Demais Ambientais Não Reembolsáveis","u":"Quantidade","s":{"2023":12.0},"o":[{"l":"Operações do Fundo Amazônia e Demais Ambientais Não Reembolsáveis","u":"Quantidade"}]},{"n":"Operações em Desenvolvimento Produtivo","u":"Quantidade","s":{"2023":65.0},"o":[{"l":"Operações em Desenvolvimento Produtivo","u":"Quantidade"}]},{"n":"Operações em Infraestrutura","u":"Quantidade","s":{"2023":54.0},"o":[{"l":"Operações em Infraestrutura","u":"Quantidade"}]},{"n":"Operações em Inovação","u":"Quantidade","s":{"2023":7.0},"o":[{"l":"Operações em Inovação","u":"Quantidade"}]},{"n":"Operações Inovadoras de Cofinanciamentos de Infraestrutura (Qtd.)","u":"Quantidade","s":{"2021":10.0},"o":[{"l":"Operações Inovadoras de Cofinanciamentos de Infraestrutura (Qtd.)","u":"Quantidade"}]},{"n":"Operações nos Focos de Infraestrutura (Qtd)","u":"Quantidade","s":{"2022":300.0},"o":[{"l":"Operações nos Focos de Infraestrutura (Qtd)","u":"Quantidade"}]},{"n":"Operações nos Focos Socioambientais (%)","u":"%","s":{"2022":100.0},"o":[{"l":"Operações nos Focos Socioambientais (%)","u":"%"}]},{"n":"Percentual de operações aprovadas dentro nos prazos de referência das esteiras de crédito","u":"%","s":{"2024":0.0,"2025":0.0},"o":[{"l":"Percentual de Operações Aprovadas dentro dos Prazos de Referência das Esteiras de Crédito","u":"%"},{"l":"Percentual de operações aprovadas dentro nos prazos de referência das esteiras de crédito","u":"%"}]},{"n":"Percentual de operações aprovadas em até 180 dias","u":"%","s":{"2017":50.0},"o":[{"l":"Percentual de operações aprovadas em até 180 dias (Prioridades estratégicas) (Peso: 0,2)","u":"%"}]},{"n":"Performance média Sustentabilidade Financeira","u":"Índice","s":{"2017":1022175.0},"o":[{"l":"Performance média Sustentabilidade Financeira","u":"Índice"}]},{"n":"Prazo de Aprovação","u":"Índice","s":{"2019":0.0},"o":[{"l":"Prazo de Aprovação","u":"Índice"}]},{"n":"Projetos de desenvolvimento de sistemas no prazo","u":"Índice","s":{"2017":0.0},"o":[{"l":"Projetos de desenvolvimento de sistemas no prazo (Prioridades estratégicas) (Peso: 0,1)","u":"Índice"}]},{"n":"Qualidade da Carteira de Crédito","u":"Índice","s":{"2017":1077.0},"o":[{"l":"Qualidade da Carteira de Crédito (Sustentabilidade financeira)","u":"Índice"}]},{"n":"Qualidade Relativa da Carteira de Crédito (%)","u":"%","s":{"2019":0.0,"2020":0.0,"2024":0.0},"o":[{"l":"Qualidade relativa da carteira de crédito","u":"Índice"},{"l":"Qualidade Relativa da Carteira de Crédito (%)","u":"%"}]},{"n":"Quantidade de MPMEs e PFs apoiadas com produtos de garantia","u":"Quantidade","s":{"2024":65000.0,"2025":85000.0},"o":[{"l":"Quantidade de MPMEs e PFs Apoiadas com Produtos de Garantia","u":"Quantidade"},{"l":"Quantidade de MPMEs e PFs apoiadas com produtos de garantia","u":"Quantidade"}]},{"n":"Quantidade de Ofertas Públicas Coordenadas","u":"Quantidade","s":{"2025":12.0},"o":[{"l":"Quantidade de Ofertas Públicas Coordenadas","u":"Quantidade"}]},{"n":"Quantidade de operações ambientais, chamadas públicas e editais aprovados","u":"Quantidade","s":{"2024":22.0,"2025":27.0},"o":[{"l":"Quantidade de operações ambientais, chamadas públicas e editais aprovados","u":"Quantidade"}]},{"n":"Quantidade de operações aprovadas de economia verde","u":"Quantidade","s":{"2025":74.0},"o":[{"l":"Quantidade de operações aprovadas de economia verde","u":"Quantidade"}]},{"n":"Quantidade de operações aprovadas em desenvolvimento produtivo","u":"Quantidade","s":{"2024":80.0,"2025":110.0},"o":[{"l":"Quantidade de operações aprovadas em desenvolvimento produtivo","u":"Quantidade"}]},{"n":"Quantidade de operações aprovadas em desenvolvimento social e gestão pública","u":"Quantidade","s":{"2024":50.0,"2025":60.0},"o":[{"l":"Quantidade de operações aprovadas em desenvolvimento social e gestão pública","u":"Quantidade"}]},{"n":"Quantidade de Operações Aprovadas em Economia Verde","u":"Quantidade","s":{"2024":66.0},"o":[{"l":"Quantidade de Operações Aprovadas em Economia Verde","u":"Quantidade"}]},{"n":"Quantidade de operações aprovadas em infraestrutura","u":"Quantidade","s":{"2024":58.0,"2025":66.0},"o":[{"l":"Quantidade de operações aprovadas em infraestrutura","u":"Quantidade"}]},{"n":"Quantidade de operações aprovadas em inovação","u":"Quantidade","s":{"2024":20.0,"2025":25.0},"o":[{"l":"Quantidade de operações aprovadas em inovação","u":"Quantidade"}]},{"n":"Quantidade de Operações Aprovadas/Homologadas de Exportação","u":"Quantidade","s":{"2024":130.0,"2025":142.0},"o":[{"l":"Quantidade de operações aprovadas/ homologadas de exportação","u":"Quantidade"},{"l":"Quantidade de Operações Aprovadas/Homologadas de Exportação","u":"Quantidade"}]},{"n":"Quantidade de operações de mercado de capitais aprovadas","u":"Quantidade","s":{"2024":12.0,"2025":18.0},"o":[{"l":"Quantidade de operações de mercado de capitais aprovadas","u":"Quantidade"}]},{"n":"Quantidade de operações mobilizadoras de recursos aprovadas","u":"Quantidade","s":{"2024":16.0,"2025":16.0},"o":[{"l":"Quantidade de operações mobilizadoras de recursos aprovadas","u":"Quantidade"}]},{"n":"Quantidade de operações não automáticas aprovadas","u":"Quantidade","s":{"2024":197.0,"2025":232.0},"o":[{"l":"Quantidade de operações não automáticas aprovadas","u":"Quantidade"}]},{"n":"Resultado da Carteira de Crédito e Repasses em R$ milhões","u":"R$ milhões","s":{"2017":5.0},"o":[{"l":"Resultado da Carteira de Crédito e Repasses em R$ milhões (Sustentabilidade financeira)","u":"R$ milhões"}]},{"n":"Resultado de Operações de Crédito e Repasses","u":"Quantidade","s":{"2018":0.0,"2019":0.0},"o":[{"l":"Resultado de Operações de Crédito e Repasses","u":"Quantidade"}]},{"n":"Resultado de Operações de Crédito e Repasses por Empregado (R$ milhões/empregado)","u":"R$ milhões","s":{"2019":0.0,"2020":6.0},"o":[{"l":"Resultado de Operações de Crédito e Repasses por empregado","u":"Quantidade"},{"l":"Resultado de Operações de Crédito e Repasses por Empregado (R$ milhões/empregado)","u":"R$ milhões"}]},{"n":"Resultado Operacional Bruto por Empregado","u":"R$ milhões","s":{"2021":0.0,"2022":0.0,"2023":3158.0,"2024":0.0,"2025":4461.0},"o":[{"l":"Resultado operacional bruto por empregado (Em R$ Milhões)","u":"R$ milhões"},{"l":"Resultado Operacional Bruto por Empregado (R$ milhões)","u":"R$ milhões"}]},{"n":"Spread Básico Médio das Contratações","u":"Índice","s":{"2017":1.0},"o":[{"l":"Spread Básico Médio das Contratações (Sustentabilidade financeira)","u":"Índice"}]},{"n":"Valor Total de Operações Aprovadas","u":"R$ milhões","s":{"2023":95532.0,"2024":145074.0,"2025":170323.0},"o":[{"l":"Valor das operações aprovadas (Em R$ Milhões)","u":"R$ milhões"},{"l":"Valor das Operações Aprovadas (R$ milhões)","u":"R$ milhões"},{"l":"Valor Total de Operações Aprovadas (R$ milhões)","u":"R$ milhões"}]},{"n":"Valor das operações aprovadas de economia verde","u":"R$ milhões","s":{"2025":20080.0},"o":[{"l":"Valor das operações aprovadas de economia verde (Em R$ Milhões)","u":"R$ milhões"}]},{"n":"Valor das Operações Aprovadas em Desenvolvimento Produtivo","u":"R$ milhões","s":{"2024":9500.0,"2025":15000.0},"o":[{"l":"Valor das operações aprovadas em desenvolvimento produtivo (Em R$ Milhões)","u":"R$ milhões"},{"l":"Valor das Operações Aprovadas em Desenvolvimento Produtivo (R$ milhões)","u":"R$ milhões"}]},{"n":"Valor das Operações Aprovadas em Desenvolvimento Social e Gestão Pública","u":"R$ milhões","s":{"2024":9158.0,"2025":24400.0},"o":[{"l":"Valor das operações aprovadas em desenvolvimento social e gestão pública (Em R$ Milhões)","u":"R$ milhões"},{"l":"Valor das Operações Aprovadas em Desenvolvimento Social e Gestão Pública (R$ milhões)","u":"R$ milhões"}]},{"n":"Valor das Operações Aprovadas em Economia Verde","u":"R$ milhões","s":{"2024":20161.0},"o":[{"l":"Valor das Operações Aprovadas em Economia Verde (R$ milhões)","u":"R$ milhões"}]},{"n":"Valor das Operações Aprovadas em Infraestrutura","u":"R$ milhões","s":{"2024":38328.0,"2025":44500.0},"o":[{"l":"Valor das operações aprovadas em infraestrutura (Em R$ Milhões)","u":"R$ milhões"},{"l":"Valor das Operações Aprovadas em Infraestrutura (R$ milhões)","u":"R$ milhões"}]},{"n":"Valor das Operações Aprovadas em Inovação","u":"R$ milhões","s":{"2024":5000.0,"2025":6000.0},"o":[{"l":"Valor das operações aprovadas em inovação (Em R$ Milhões)","u":"R$ milhões"},{"l":"Valor das Operações Aprovadas em Inovação (R$ milhões)","u":"R$ milhões"}]},{"n":"Valor das Operações Aprovadas/Homologadas de Exportação","u":"R$ milhões","s":{"2024":10000.0,"2025":12500.0},"o":[{"l":"Valor das operações aprovadas/ homologadas de exportação (Em R$ Milhões)","u":"R$ milhões"},{"l":"Valor das Operações Aprovadas/Homologadas de Exportação (R$ milhões)","u":"R$ milhões"}]},{"n":"Valor das Operações Não-Automáticas Aprovadas","u":"R$ milhões","s":{"2025":80323.0},"o":[{"l":"Valor das Operações Não-Automáticas Aprovadas (Em R$ Milhões)","u":"R$ milhões"}]},{"n":"Volume de contratações por empregado","u":"R$ milhões","s":{"2020":0.0},"o":[{"l":"Volume de contratações por empregado (R$ milhões)","u":"R$ milhões"}]}];
+const BNDES_ANOS = [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025];
 
-/* ============ ABAS ============ */
+/* ============ RELÓGIO / ABAS ============ */
+document.getElementById('clock').textContent = new Date().toLocaleString('pt-BR');
 document.querySelectorAll('.tab[data-page]').forEach(btn=>{
   btn.addEventListener('click',()=>{
     document.querySelectorAll('.tab[data-page]').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById(btn.dataset.page).classList.add('active');
+    Object.values(charts).forEach(c=>c.resize());
   });
 });
 
 /* ============ HELPERS ============ */
-const fmt = v => v.toLocaleString('pt-BR');
+const fmt  = v => Math.round(v).toLocaleString('pt-BR');
+const fmt1 = v => v.toLocaleString('pt-BR',{maximumFractionDigits:1});
+const fmt2 = v => v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtR = v => {
-  if(Math.abs(v)>=1e9) return 'R$ '+(v/1e9).toFixed(2).replace('.',',')+' bi';
-  if(Math.abs(v)>=1e6) return 'R$ '+(v/1e6).toFixed(2).replace('.',',')+' mi';
-  if(Math.abs(v)>=1e3) return 'R$ '+(v/1e3).toFixed(1).replace('.',',')+' mil';
-  return 'R$ '+v.toFixed(2).replace('.',',');
+  const s = v<0?'-':''; v=Math.abs(v);
+  if(v>=1e9) return s+'R$ '+fmt2(v/1e9)+' bi';
+  if(v>=1e6) return s+'R$ '+fmt2(v/1e6)+' mi';
+  if(v>=1e3) return s+'R$ '+fmt1(v/1e3)+' mil';
+  return s+'R$ '+fmt2(v);
 };
+const fmtV = (v,u) => {
+  if(v==null) return '—';
+  if(u==='%') return fmt1(v)+'%';
+  if(u==='R$ milhões') return 'R$ '+fmt(v)+' mi';
+  return v.toLocaleString('pt-BR',{maximumFractionDigits:2});
+};
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const pixLabel = d => d.slice(4,6)+'/'+d.slice(0,4);
+const sum = (a,k)=>a.reduce((s,d)=>s+d[k],0);
+const avg = (a,k)=>a.length?sum(a,k)/a.length:0;
+const devol = d => d.vi+d.vp;                       // devolvido via MED (integral + parcial)
+const naoRec = d => d.vc-d.vi-d.vp;                 // residual + saldo insuf. + conta encerrada + motivos diversos
 
-/* ============ DADOS PIX ============ */
-const pixRaw = [
-  {d:'202201',c:71508,a:57777,r:13731,t100:5.284,uf:22507,cf:24811,vc:122558868.28,vi:4261762.10,vp:2227049.21,qs:30679,qe:5074,qd:3955,pd:5.29},
-  {d:'202202',c:78636,a:60680,r:17956,t100:5.220,uf:23984,cf:25883,vc:136034158.58,vi:5355273.06,vp:2792891.25,qs:33078,qe:6190,qd:3401,pd:5.99},
-  {d:'202203',c:134963,a:105015,r:29948,t100:7.708,uf:35590,cf:39074,vc:216939856.12,vi:10998092.06,vp:6013211.68,qs:53516,qe:13035,qd:8146,pd:7.84},
-  {d:'202204',c:152636,a:114763,r:37873,t100:8.082,uf:32356,cf:35552,vc:178163735.34,vi:8494563.65,vp:3582905.43,qs:52193,qe:24293,qd:9855,pd:6.78},
-  {d:'202205',c:229401,a:149006,r:80395,t100:9.460,uf:35454,cf:39301,vc:224862932.69,vi:8179939.00,vp:4156913.48,qs:60416,qe:43379,qd:11374,pd:5.49},
-  {d:'202206',c:190206,a:146526,r:43680,t100:8.969,uf:38126,cf:42340,vc:223677609.87,vi:15034322.97,vp:4462077.23,qs:64210,qe:36153,qd:7580,pd:8.72},
-  {d:'202207',c:186056,a:142493,r:43563,t100:8.143,uf:38742,cf:42601,vc:213715054.18,vi:9793327.15,vp:4361098.23,qs:67988,qe:27813,qd:7493,pd:6.62},
-  {d:'202208',c:218131,a:155021,r:63110,t100:8.339,uf:41737,cf:43824,vc:233907823.75,vi:10759053.55,vp:4878295.45,qs:96609,qe:6372,qd:8199,pd:6.69},
-  {d:'202209',c:196376,a:137731,r:58645,t100:7.167,uf:40907,cf:44950,vc:220824276.90,vi:12832651.52,vp:6476548.20,qs:83451,qe:3758,qd:7874,pd:8.74},
-  {d:'202210',c:199364,a:147113,r:52251,t100:7.180,uf:42511,cf:45795,vc:232190741.27,vi:15522803.17,vp:6667304.82,qs:84845,qe:3066,qd:13594,pd:9.56},
-  {d:'202211',c:215663,a:155175,r:60488,t100:7.376,uf:43412,cf:46983,vc:243995119.62,vi:13685909.73,vp:6575795.57,qs:82176,qe:3266,qd:21659,pd:8.30},
-  {d:'202212',c:272183,a:184605,r:87578,t100:7.618,uf:50625,cf:55045,vc:777577423.07,vi:14551837.02,vp:7705261.98,qs:99919,qe:3745,qd:26401,pd:2.86},
-  {d:'202301',c:208926,a:140714,r:68212,t100:6.446,uf:47610,cf:53713,vc:254667303.59,vi:12605085.82,vp:7222005.07,qs:71212,qe:3005,qd:13200,pd:7.79},
-  {d:'202302',c:210490,a:141113,r:69377,t100:6.552,uf:43825,cf:49611,vc:248907251.40,vi:14631634.06,vp:9850732.78,qs:79724,qe:2359,qd:9271,pd:9.84},
-  {d:'202303',c:278690,a:185654,r:93036,t100:7.292,uf:51265,cf:58049,vc:322778922.86,vi:17933410.50,vp:10048680.76,qs:108653,qe:2759,qd:9869,pd:8.67},
-  {d:'202304',c:272840,a:179832,r:93008,t100:7.139,uf:51274,cf:57209,vc:340301283.61,vi:17104572.55,vp:13630556.50,qs:103331,qe:3437,qd:12919,pd:9.03},
-  {d:'202305',c:371822,a:261416,r:110406,t100:9.475,uf:59510,cf:68852,vc:421946678.04,vi:29141561.10,vp:10030452.15,qs:163335,qe:5521,qd:20609,pd:9.28},
-  {d:'202306',c:343010,a:201734,r:141276,t100:7.058,uf:56600,cf:64709,vc:319735983.50,vi:19854822.46,vp:10014782.56,qs:112667,qe:5427,qd:17804,pd:9.34},
-  {d:'202307',c:403428,a:230453,r:172975,t100:7.488,uf:64624,cf:73461,vc:343271986.06,vi:19533694.57,vp:9576716.17,qs:142985,qe:10104,qd:8084,pd:8.48},
-  {d:'202308',c:417673,a:232593,r:185080,t100:7.095,uf:62877,cf:70678,vc:410383099.54,vi:21458142.76,vp:11059998.24,qs:146737,qe:9327,qd:11170,pd:7.92},
-  {d:'202309',c:416665,a:220849,r:195816,t100:6.590,uf:56983,cf:63594,vc:387570686.82,vi:21169202.08,vp:10444199.74,qs:138909,qe:6924,qd:8679,pd:8.16},
-  {d:'202310',c:477914,a:244351,r:233563,t100:6.874,uf:58174,cf:64833,vc:455754645.95,vi:25891679.47,vp:15502650.07,qs:156848,qe:4420,qd:8810,pd:9.08},
-  {d:'202311',c:503380,a:238073,r:265307,t100:6.425,uf:63898,cf:70745,vc:442347741.20,vi:35898697.93,vp:11692951.96,qs:150118,qe:4602,qd:10677,pd:10.76},
-  {d:'202312',c:650701,a:297341,r:353360,t100:7.057,uf:68487,cf:75550,vc:405936605.90,vi:28032339.98,vp:8458293.45,qs:172457,qe:3409,qd:15843,pd:8.99},
-  {d:'202401',c:795616,a:346693,r:448923,t100:9.004,uf:72733,cf:80283,vc:474119643.07,vi:27264748.79,vp:12637741.47,qs:198643,qe:2397,qd:13312,pd:8.42},
-  {d:'202402',c:684123,a:286689,r:397434,t100:7.452,uf:66246,cf:73057,vc:420843695.16,vi:20329838.97,vp:10869219.34,qs:182946,qe:2464,qd:8223,pd:7.41},
-  {d:'202403',c:757577,a:323645,r:433932,t100:7.487,uf:72308,cf:80709,vc:552456187.49,vi:29350165.04,vp:15658177.55,qs:197298,qe:4641,qd:10913,pd:8.15},
-  {d:'202404',c:780242,a:330887,r:449355,t100:7.615,uf:72062,cf:80430,vc:451711293.76,vi:23131456.96,vp:10640500.52,qs:207254,qe:4978,qd:15544,pd:7.48},
-  {d:'202405',c:841711,a:346370,r:495341,t100:7.496,uf:78884,cf:87450,vc:537340697.53,vi:29102491.12,vp:18368850.46,qs:225186,qe:7460,qd:20565,pd:8.83},
-  {d:'202406',c:924449,a:378357,r:546092,t100:8.124,uf:81241,cf:89468,vc:458419507.54,vi:26670045.76,vp:12659754.68,qs:242595,qe:7589,qd:17041,pd:8.58},
-  {d:'202407',c:1176263,a:530753,r:645510,t100:11.088,uf:100793,cf:112691,vc:570192961.96,vi:29139817.57,vp:14460769.97,qs:336459,qe:12787,qd:21231,pd:7.65},
-  {d:'202408',c:1146697,a:517930,r:628767,t100:10.339,uf:97290,cf:110039,vc:841884565.49,vi:51285171.91,vp:31845147.72,qs:325681,qe:19518,qd:16115,pd:9.87},
-  {d:'202409',c:1159575,a:479645,r:679930,t100:9.799,uf:97114,cf:107204,vc:581604033.67,vi:28637603.24,vp:12713161.28,qs:286864,qe:21380,qd:11428,pd:7.11},
-  {d:'202410',c:1262997,a:494691,r:768306,t100:9.707,uf:103508,cf:116607,vc:628578936.77,vi:39914254.85,vp:15032820.27,qs:286993,qe:8646,qd:13725,pd:8.74},
-  {d:'202411',c:1408727,a:492066,r:916661,t100:9.515,uf:119787,cf:136511,vc:628694403.03,vi:24548545.83,vp:15490359.03,qs:326645,qe:17524,qd:26235,pd:6.37},
-  {d:'202412',c:1356959,a:384501,r:972458,t100:6.734,uf:109438,cf:122638,vc:541233671.86,vi:27761889.91,vp:15069643.36,qs:245855,qe:9374,qd:17645,pd:7.91},
-  {d:'202501',c:1343369,a:369828,r:973541,t100:7.308,uf:102416,cf:113777,vc:543390959.36,vi:28834067.69,vp:37215403.91,qs:204394,qe:6762,qd:15657,pd:12.16},
-  {d:'202502',c:1101789,a:352628,r:749161,t100:7.073,uf:93754,cf:102212,vc:661738440.62,vi:20715832.37,vp:12267767.40,qs:186080,qe:4913,qd:14742,pd:4.98},
-  {d:'202503',c:1237573,a:347156,r:890417,t100:6.239,uf:99930,cf:108630,vc:564202596.56,vi:18537850.49,vp:10213257.41,qs:185539,qe:4934,qd:15700,pd:5.10},
-  {d:'202504',c:1393658,a:372501,r:1021157,t100:6.654,uf:101924,cf:110426,vc:603533084.35,vi:46416988.07,vp:21070310.64,qs:213292,qe:6685,qd:10277,pd:11.18},
-  {d:'202505',c:1361178,a:308964,r:1052214,t100:5.210,uf:98893,cf:107022,vc:485908114.81,vi:38849444.74,vp:15702065.46,qs:183181,qe:5622,qd:9322,pd:11.23},
-  {d:'202506',c:1258832,a:293725,r:965107,t100:5.065,uf:92693,cf:100617,vc:671387752.50,vi:34476615.69,vp:18910916.07,qs:169625,qe:11773,qd:14011,pd:7.95},
-  {d:'202507',c:1328140,a:325959,r:1002181,t100:5.435,uf:106482,cf:117218,vc:698566565.98,vi:40389809.35,vp:28921543.80,qs:176413,qe:6961,qd:16525,pd:9.92},
-  {d:'202508',c:1233716,a:285354,r:948362,t100:4.573,uf:99151,cf:108573,vc:727671388.95,vi:61592739.40,vp:26469176.43,qs:154401,qe:5964,qd:10379,pd:12.10},
-  {d:'202509',c:1243173,a:298712,r:944461,t100:4.870,uf:95145,cf:103690,vc:610598393.15,vi:34541200.24,vp:16473448.32,qs:168610,qe:6140,qd:14675,pd:8.35},
-  {d:'202510',c:3455796,a:367845,r:3087951,t100:5.700,uf:130581,cf:138425,vc:769478130.37,vi:45096064.71,vp:25520378.39,qs:202683,qe:8918,qd:14877,pd:9.18},
-  {d:'202511',c:3505010,a:288579,r:3216431,t100:4.467,uf:108678,cf:114767,vc:859859976.12,vi:39059779.89,vp:19768616.22,qs:152014,qe:8155,qd:13238,pd:6.84},
-  {d:'202512',c:3771666,a:322535,r:3449131,t100:4.544,uf:105166,cf:110831,vc:573884285.38,vi:36933198.18,vp:18143483.07,qs:183232,qe:8235,qd:11307,pd:9.60},
-  {d:'202601',c:3181210,a:279045,r:2902165,t100:4.385,uf:92490,cf:98573,vc:723028812.55,vi:66090325.44,vp:45284406.04,qs:154916,qe:9400,qd:14792,pd:15.40},
-  {d:'202602',c:2813735,a:281590,r:2532145,t100:4.704,uf:86913,cf:92233,vc:655815446.71,vi:58312146.87,vp:28965231.21,qs:142869,qe:31493,qd:11915,pd:13.31},
-  {d:'202603',c:2925122,a:308793,r:2616329,t100:4.580,uf:95005,cf:101284,vc:705387976.55,vi:65660724.21,vp:27370647.62,qs:193825,qe:7498,qd:8040,pd:13.19},
-  {d:'202604',c:2960234,a:283016,r:2677218,t100:4.236,uf:87892,cf:94173,vc:598266370.36,vi:74635383.13,vp:22445603.71,qs:172927,qe:8584,qd:10477,pd:16.23}
-];
-
-/* ============ DADOS BNDES ============ */
-const bndesRaw = [
-  ['# de operações automáticas','Quantidade',{2018:72274,2019:54665}],
-  ['# de operações não automáticas','Quantidade',{2018:836,2019:496}],
-  ['% de operações aprovadas em até 180 dias','%',{2018:0}],
-  ['Apoio a Educação, Saúde e Segurança','Quantidade',{2018:0}],
-  ['Apoio a Educação, Saúde e Segurança (em bilhões)','R$ bilhões',{2019:0}],
-  ['Aprovações em temas prioritários (Peso 0,2)','Índice',{2017:0}],
-  ['Avanço na adoção do Quadro de Resultados (Peso 0,2)','Índice',{2017:0}],
-  ['Carteira de Fundos de Investimento','Quantidade',{2018:0}],
-  ['Carteira de Fundos de Investimento (em bilhões)','R$ bilhões',{2019:0}],
-  ['Clientes Financiados por Cooperativas de Crédito','Quantidade',{2023:88000}],
-  ['Clientes MPMEs e PFs Apoiados com Crédito','Quantidade',{2023:127000}],
-  ['Contratação, ambientação e alocação de novos empregados','Quantidade',{2024:600,2025:600}],
-  ['Contratações em infraestrutura - CIN (R$ milhões)','R$ milhões',{2020:19000}],
-  ['Crédito para MPMEs e PFs em Produtos de Garantias (R$ milhões)','R$ milhões',{2023:24000}],
-  ['Desembolso em Desenvolvimento Regional','Quantidade',{2018:0}],
-  ['Desembolso em Desenvolvimento Regional (em bilhões)','R$ bilhões',{2019:0}],
-  ['Desembolso em Estrutura Produtiva','Quantidade',{2018:0}],
-  ['Desembolso em Estrutura Produtiva (em bilhões)','R$ bilhões',{2019:0}],
-  ['Desembolso em Infraestrutura','Quantidade',{2018:0}],
-  ['Desembolso em Infraestrutura (em bilhões)','R$ bilhões',{2019:30}],
-  ['Desembolso em Inovação','Quantidade',{2018:0}],
-  ['Desembolso em Inovação (em bilhões)','R$ bilhões',{2019:2}],
-  ['Desembolso em Sustentabilidade','Quantidade',{2018:0}],
-  ['Desembolso em Sustentabilidade (em bilhões)','R$ bilhões',{2019:16}],
-  ['Desembolso para MPMEs e Pessoa Física (em milhões)','R$ milhões',{2019:26226}],
-  ['Despesa Administrativa e de Pessoal (em R$ mil)','R$ mil',{2019:2339635}],
-  ['Despesas Administrativa e de Pessoal (R$ mil)','R$ mil',{2021:2449221}],
-  ['Despesas administrativas e de pessoal - DAP (R$ milhões)','R$ milhões',{2020:2204}],
-  ['Despesas Administrativas e de Pessoal (R$ mil)','R$ mil',{2023:3124842}],
-  ['Despesas Administrativas e de Pessoal por Ativo Total Médio','Índice',{2022:0,2023:0}],
-  ['Entrega de estudos de estruturação de projetos (Peso 0,2)','Índice',{2017:0}],
-  ['Estudos de estruturação de projetos','Quantidade',{2018:0}],
-  ['Fábrica de Projetos e Desestatização - FPD (número de marcos)','Quantidade',{2020:100}],
-  ['Fábrica de Projetos e Desestatização (Qtd. de marcos)','Quantidade',{2021:90}],
-  ['Fábrica de Projetos e Desestatização (Qtd de marcos)','Quantidade',{2022:300}],
-  ['Implementação planos de ação (Peso 0,1)','Índice',{2017:0}],
-  ['Índice de Eficiência','Índice',{2018:0}],
-  ['Índice de Eficiência em R$ (Peso)','Índice',{2017:0}],
-  ['Índice de Eficiência (em R$ mil)','R$ mil',{2019:0}],
-  ['Marcos de Estruturação de Projetos','Quantidade',{2023:65}],
-  ['Marcos de estruturação de projetos com foco ambiental e climático','Quantidade',{2023:19,2025:9}],
-  ['Marcos de estruturação de projetos com foco social','Quantidade',{2023:31,2024:27}],
-  ['Marcos de estruturação de projetos de infraestrutura','Quantidade',{2023:17,2024:21,2025:32}],
-  ['Marcos de Estruturação de Projetos de Infraestrutura Social','Quantidade',{2023:29}],
-  ['Marcos de estruturação de projetos executados','Quantidade',{2022:68}],
-  ['Marcos de Estruturação Projetos Foco Ambiental e Climático','Quantidade',{2023:13}],
-  ['Número de Operações Aprovadas de Infraestrutura (Qtd.)','Quantidade',{2020:26}],
-  ['Operações com Foco Ambiental e Climático','Quantidade',{2023:63}],
-  ['Operações com Foco Social','Quantidade',{2023:22}],
-  ['Operações de Exportação','Quantidade',{2023:110}],
-  ['Operações de Garantia e de Instrumentos Alternativos (Qtd)','Quantidade',{2022:30}],
-  ['Operações do Fundo Amazônia e Demais Ambientais Não Reembolsáveis','Quantidade',{2023:12}],
-  ['Operações em Desenvolvimento Produtivo','Quantidade',{2023:65}],
-  ['Operações em Infraestrutura','Quantidade',{2023:54}],
-  ['Operações em Inovação','Quantidade',{2023:7}],
-  ['Operações Inovadoras de Cofinanciamentos de Infraestrutura (Qtd.)','Quantidade',{2020:10}],
-  ['Operações nos Focos de Infraestrutura (Qtd)','Quantidade',{2022:300}],
-  ['Operações nos Focos Socioambientais (%)','%',{2022:100}],
-  ['Percentual de Operações Aprovadas dentro dos Prazos (Esteiras)','%',{2022:0,2023:0}],
-  ['Percentual de operações aprovadas em até 180 dias (Peso 0,2)','%',{2017:50}],
-  ['Performance média Sustentabilidade Financeira','Índice',{2017:1022175}],
-  ['Prazo de Aprovação','Índice',{2019:0}],
-  ['Projetos de desenvolvimento de sistemas no prazo (Peso 0,1)','Índice',{2017:0}],
-  ['Qualidade da Carteira de Crédito (Sustentabilidade financeira)','Índice',{2017:1077}],
-  ['Qualidade relativa da carteira de crédito','Índice',{2019:0,2023:0}],
-  ['Qualidade Relativa da Carteira de Crédito (%)','%',{2020:0}],
-  ['Quantidade de clientes financiados por cooperativas de crédito','Quantidade',{2024:128749,2025:164000}],
-  ['Quantidade de clientes MPMEs e PFs apoiados com crédito','Quantidade',{2024:172380,2025:228000}],
-  ['Quantidade de MPMEs e PFs Apoiadas com Produtos de Garantia','Quantidade',{2023:65000}],
-  ['Quantidade de MPMEs e PFs apoiadas com produtos de garantia','Quantidade',{2025:85000}],
-  ['Quantidade de Ofertas Públicas Coordenadas','Quantidade',{2022:12}],
-  ['Quantidade de operações ambientais, chamadas públicas e editais aprovados','Quantidade',{2024:22,2025:27}],
-  ['Quantidade de operações aprovadas de economia verde','Quantidade',{2022:74}],
-  ['Quantidade de operações aprovadas em desenvolvimento produtivo','Quantidade',{2023:80,2024:110}],
-  ['Quantidade de operações aprovadas em desenvolvimento social e gestão pública','Quantidade',{2023:50,2024:60}],
-  ['Quantidade de Operações Aprovadas em Economia Verde','Quantidade',{2023:66}],
-  ['Quantidade de operações aprovadas em infraestrutura','Quantidade',{2023:58,2024:66}],
-  ['Quantidade de operações aprovadas em inovação','Quantidade',{2023:20,2024:25}],
-  ['Quantidade de operações aprovadas/homologadas de exportação','Quantidade',{2022:142}],
-  ['Quantidade de Operações Aprovadas/Homologadas de Exportação','Quantidade',{2023:130}],
-  ['Quantidade de operações de mercado de capitais aprovadas','Quantidade',{2024:12,2025:18}],
-  ['Quantidade de operações mobilizadoras de recursos aprovadas','Quantidade',{2024:16,2025:16}],
-  ['Quantidade de operações não automáticas aprovadas','Quantidade',{2024:197,2025:232}],
-  ['Resultado da Carteira de Crédito e Repasses (R$ milhões)','R$ milhões',{2017:5}],
-  ['Resultado de Operações de Crédito e Repasses','Índice',{2018:0,2019:0}],
-  ['Resultado de Operações de Crédito e Repasses por empregado','Índice',{2019:0}],
-  ['Resultado de Operações de Crédito e Repasses por Empregado (R$ milhões/empregado)','R$ milhões',{2020:6}],
-  ['Resultado operacional bruto por empregado (Em R$ Milhões)','R$ milhões',{2024:4461}],
-  ['Resultado Operacional Bruto por Empregado (R$ milhões)','R$ milhões',{2022:0,2023:3158}],
-  ['Spread Básico Médio das Contratações','Índice',{2017:1}],
-  ['Valor das operações aprovadas (Em R$ Milhões)','R$ milhões',{2024:170323}],
-  ['Valor das Operações Aprovadas (R$ milhões)','R$ milhões',{2023:145074}],
-  ['Valor das operações aprovadas de economia verde (Em R$ Milhões)','R$ milhões',{2024:20080}],
-  ['Valor das operações aprovadas em desenvolvimento produtivo (Em R$ Milhões)','R$ milhões',{2024:15000}],
-  ['Valor das Operações Aprovadas em Desenvolvimento Produtivo (R$ milhões)','R$ milhões',{2023:9500}],
-  ['Valor das operações aprovadas em desenvolvimento social e gestão pública (Em R$ Milhões)','R$ milhões',{2024:24400}],
-  ['Valor das Operações Aprovadas em Desenvolvimento Social e Gestão Pública (R$ milhões)','R$ milhões',{2023:9158}],
-  ['Valor das Operações Aprovadas em Economia Verde (R$ milhões)','R$ milhões',{2023:20161}],
-  ['Valor das operações aprovadas em infraestrutura (Em R$ Milhões)','R$ milhões',{2024:44500}],
-  ['Valor das Operações Aprovadas em Infraestrutura (R$ milhões)','R$ milhões',{2023:38328}],
-  ['Valor das operações aprovadas em inovação (Em R$ Milhões)','R$ milhões',{2024:6000}],
-  ['Valor das Operações Aprovadas em Inovação (R$ milhões)','R$ milhões',{2023:5000}],
-  ['Valor das operações aprovadas/homologadas de exportação (Em R$ Milhões)','R$ milhões',{2024:12500}],
-  ['Valor das Operações Aprovadas/Homologadas de Exportação (R$ milhões)','R$ milhões',{2023:10000}],
-  ['Valor das Operações Não-Automáticas Aprovadas (Em R$ Milhões)','R$ milhões',{2024:80323}],
-  ['Valor Total de Operações Aprovadas (R$ milhões)','R$ milhões',{2022:95532}]
-];
-
-const bndesLong = [];
-bndesRaw.forEach(([ind,uni,anos])=>{
-  Object.keys(anos).forEach(a=>{
-    bndesLong.push({indicador:ind, unidade:uni, ano:parseInt(a), valor:anos[a]});
-  });
-});
-
-/* ============ CHART DEFAULTS ============ */
 Chart.defaults.font.family = "'Segoe UI',sans-serif";
 Chart.defaults.font.size = 11;
 Chart.defaults.color = '#605e5c';
@@ -382,249 +253,317 @@ function mk(id, cfg){
   if(charts[id]) charts[id].destroy();
   charts[id] = new Chart(document.getElementById(id), cfg);
 }
+const PALETTE = ['#118dff','#107c10','#f2c811','#d13438','#ff8c00','#8764b8','#0b6cbf','#00b7c3'];
 
 /* ============ PIX ============ */
 function getPixFiltered(){
   const ano = document.getElementById('pixAno').value;
   const mes = document.getElementById('pixMes').value;
   const per = document.getElementById('pixPeriodo').value;
-  let data = [...pixRaw];
+  let data = [...PIX];
+  if(per) return data.slice(-parseInt(per));          // período tem prioridade sobre ano/mês
   if(ano) data = data.filter(d=>d.d.slice(0,4)===ano);
   if(mes) data = data.filter(d=>d.d.slice(4,6)===mes);
-  if(per) data = data.slice(-parseInt(per));
   return data;
 }
 
 function renderPix(){
   const data = getPixFiltered();
+  const L = data.map(d=>pixLabel(d.d));
 
-  const totC = data.reduce((s,d)=>s+d.c,0);
-  const totA = data.reduce((s,d)=>s+d.a,0);
-  const totR = data.reduce((s,d)=>s+d.r,0);
-  const totVC = data.reduce((s,d)=>s+d.vc,0);
-  const totDev = data.reduce((s,d)=>s+d.vi+d.vp,0);
-  const taxa = totC ? (totA/totC*100) : 0;
-  const percDev = totVC ? (totDev/totVC*100) : 0;
+  const totC = sum(data,'c'), totA = sum(data,'a'), totR = sum(data,'r');
+  const totVC = sum(data,'vc');
+  const totDev = data.reduce((s,d)=>s+devol(d),0);
+  const totNao = totVC-totDev;
+  const taxa = totC ? totA/totC*100 : 0;
+  const percDev = totVC ? totDev/totVC*100 : 0;
+  const maxUf = data.reduce((m,d)=>Math.max(m,d.uf),0);
 
   document.getElementById('pixKpis').innerHTML = `
-    <div class="kpi"><div class="label">Pix contestados</div><div class="value">${fmt(totC)}</div><div class="sub">${data.length} meses</div></div>
+    <div class="kpi"><div class="label">Pix contestados</div><div class="value">${fmt(totC)}</div><div class="sub">${data.length} ${data.length===1?'mês':'meses'}</div></div>
     <div class="kpi green"><div class="label">Contestações aceitas</div><div class="value">${fmt(totA)}</div><div class="sub">${fmt(totR)} rejeitadas</div></div>
-    <div class="kpi yellow"><div class="label">Taxa de aceitação</div><div class="value">${taxa.toFixed(2).replace('.',',')}%</div><div class="sub">aceitas / contestados</div></div>
+    <div class="kpi yellow"><div class="label">Taxa de aceitação</div><div class="value">${fmt2(taxa)}%</div><div class="sub">aceitas ÷ contestados · ${fmt2(avg(data,'t100'))} aceitas/100 mil (média)</div></div>
     <div class="kpi orange"><div class="label">Valor contestado aceito</div><div class="value">${fmtR(totVC)}</div><div class="sub">soma no período</div></div>
-    <div class="kpi red"><div class="label">Valor devolvido via MED</div><div class="value">${fmtR(totDev)}</div><div class="sub">${percDev.toFixed(2).replace('.',',')}% do contestado</div></div>
-    <div class="kpi"><div class="label">Usuários c/ fraude</div><div class="value">${fmt(data.reduce((s,d)=>s+d.uf,0))}</div><div class="sub">chaves: ${fmt(data.reduce((s,d)=>s+d.cf,0))}</div></div>
+    <div class="kpi green"><div class="label">Valor devolvido via MED</div><div class="value">${fmtR(totDev)}</div><div class="sub">${fmt2(percDev)}% do valor contestado</div></div>
+    <div class="kpi red"><div class="label">Valor não recuperado</div><div class="value">${fmtR(totNao)}</div><div class="sub">${fmt2(100-percDev)}% do valor contestado</div></div>
+    <div class="kpi"><div class="label">Usuários c/ fraude (média/mês)</div><div class="value">${fmt(avg(data,'uf'))}</div><div class="sub">chaves: ${fmt(avg(data,'cf'))}/mês · pico de usuários ${fmt(maxUf)}</div></div>
   `;
 
   mk('chartPixEvolucao',{
     type:'bar',
-    data:{labels:data.map(d=>pixLabel(d.d)),datasets:[
+    data:{labels:L,datasets:[
       {label:'Contestados',data:data.map(d=>d.c),backgroundColor:'#118dff'},
       {label:'Aceitas',data:data.map(d=>d.a),backgroundColor:'#107c10'},
       {label:'Rejeitadas',data:data.map(d=>d.r),backgroundColor:'#d13438'}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      scales:{x:{ticks:{maxRotation:60,minRotation:45}},y:{beginAtZero:true}},
+      scales:{x:{ticks:{maxRotation:60,minRotation:45}},y:{beginAtZero:true,ticks:{callback:v=>fmt(v)}}},
       plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.parsed.y)}}}}
   });
 
-  const qs = data.reduce((s,d)=>s+d.qs,0);
-  const qe = data.reduce((s,d)=>s+d.qe,0);
-  const qd = data.reduce((s,d)=>s+d.qd,0);
-  const totND = qs+qe+qd || 1;
+  // Composição das não devoluções (quantidade ou valor)
+  const modo = document.getElementById('pixComp').value;
+  const keys = modo==='v' ? ['vs','ve','vd'] : ['qs','qe','qd'];
+  const vals = keys.map(k=>sum(data,k));
+  const totND = vals.reduce((a,b)=>a+b,0) || 1;
+  document.getElementById('compUnit').textContent = modo==='v' ? 'R$' : 'quantidade';
   mk('chartPixComposicao',{
     type:'doughnut',
     data:{labels:['Saldo insuficiente','Conta encerrada','Motivos diversos'],
-      datasets:[{data:[qs,qe,qd],backgroundColor:['#118dff','#f2c811','#d13438']}]},
+      datasets:[{data:vals,backgroundColor:['#118dff','#f2c811','#d13438']}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},
-      tooltip:{callbacks:{label:c=>c.label+': '+fmt(c.parsed)+' ('+(c.parsed/totND*100).toFixed(1)+'%)'}}}}
+      tooltip:{callbacks:{label:c=>c.label+': '+(modo==='v'?fmtR(c.parsed):fmt(c.parsed))+' ('+fmt1(c.parsed/totND*100)+'%)'}}}}
   });
 
+  // Taxa de aceitação (%) e aceitas por 100 mil (eixo direito)
   mk('chartPixTaxa',{
     type:'line',
-    data:{labels:data.map(d=>pixLabel(d.d)),datasets:[
-      {label:'Taxa de aceitação %',data:data.map(d=>d.c?(d.a/d.c*100):0),
-       borderColor:'#118dff',backgroundColor:'rgba(17,141,255,.15)',fill:true,tension:.3,pointRadius:2}
+    data:{labels:L,datasets:[
+      {label:'Taxa de aceitação %',data:data.map(d=>d.c?d.a/d.c*100:0),yAxisID:'y',
+       borderColor:'#118dff',backgroundColor:'rgba(17,141,255,.12)',fill:true,tension:.3,pointRadius:2},
+      {label:'Aceitas por 100 mil transações',data:data.map(d=>d.t100),yAxisID:'y1',
+       borderColor:'#ff8c00',backgroundColor:'transparent',tension:.3,pointRadius:2,borderDash:[5,4]}
     ]},
-    options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}},
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(2)+'%'}}}}
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{
+        x:{ticks:{maxRotation:60,minRotation:45}},
+        y:{beginAtZero:true,position:'left',ticks:{callback:v=>v+'%'}},
+        y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false}}},
+      plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt2(c.parsed.y)+(c.datasetIndex===0?'%':'')}}}}
   });
 
   mk('chartPixFraude',{
     type:'bar',
-    data:{labels:data.map(d=>pixLabel(d.d)),datasets:[
+    data:{labels:L,datasets:[
       {label:'Usuários',data:data.map(d=>d.uf),backgroundColor:'#ff8c00'},
       {label:'Chaves',data:data.map(d=>d.cf),backgroundColor:'#0b6cbf'}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      scales:{x:{ticks:{maxRotation:60,minRotation:45}}},
+      scales:{x:{ticks:{maxRotation:60,minRotation:45}},y:{ticks:{callback:v=>fmt(v)}}},
       plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.parsed.y)}}}}
   });
 
   mk('chartPixValores',{
     type:'line',
-    data:{labels:data.map(d=>pixLabel(d.d)),datasets:[
+    data:{labels:L,datasets:[
       {label:'Valor contestado aceito',data:data.map(d=>d.vc),
-       borderColor:'#118dff',backgroundColor:'rgba(17,141,255,.12)',fill:true,tension:.3,pointRadius:2},
-      {label:'Valor devolvido MED',data:data.map(d=>d.vi+d.vp),
-       borderColor:'#107c10',backgroundColor:'rgba(16,124,16,.12)',fill:true,tension:.3,pointRadius:2}
+       borderColor:'#118dff',backgroundColor:'rgba(17,141,255,.10)',fill:true,tension:.3,pointRadius:2},
+      {label:'Devolvido via MED',data:data.map(devol),
+       borderColor:'#107c10',backgroundColor:'rgba(16,124,16,.12)',fill:true,tension:.3,pointRadius:2},
+      {label:'Não recuperado',data:data.map(naoRec),
+       borderColor:'#d13438',backgroundColor:'transparent',tension:.3,pointRadius:2,borderDash:[5,4]}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtR(v)}}},
+      scales:{x:{ticks:{maxRotation:60,minRotation:45}},y:{beginAtZero:true,ticks:{callback:v=>fmtR(v)}}},
       plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtR(c.parsed.y)}}}}
   });
 
+  // % devolução + média móvel 3m
+  const pd = data.map(d=>d.vc?devol(d)/d.vc*100:0);
+  const mm3 = pd.map((_,i)=>i<2?null:(pd[i]+pd[i-1]+pd[i-2])/3);
   mk('chartPixPercDev',{
-    type:'bar',
-    data:{labels:data.map(d=>pixLabel(d.d)),datasets:[
-      {label:'% Devolução',data:data.map(d=>d.pd),
-       backgroundColor:data.map(d=>d.pd>=10?'#107c10':d.pd>=5?'#f2c811':'#d13438')}
+    data:{labels:L,datasets:[
+      {type:'bar',label:'% Devolução',data:pd,
+       backgroundColor:pd.map(v=>v>=10?'#107c10':v>=5?'#f2c811':'#d13438'),order:2},
+      {type:'line',label:'Média móvel 3 meses',data:mm3,borderColor:'#252423',backgroundColor:'transparent',
+       tension:.3,pointRadius:0,borderWidth:2,order:1}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
       scales:{x:{ticks:{maxRotation:60,minRotation:45}},y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}},
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(2)+'%'}}}}
+      plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.parsed.y==null?'—':fmt2(c.parsed.y)+'%')}}}}
   });
 
-  const tbody = document.querySelector('#pixTable tbody');
-  tbody.innerHTML = data.slice().reverse().map(d=>{
-    const tx = d.c?(d.a/d.c*100):0;
-    const vd = d.vi+d.vp;
+  // Decomposição do valor contestado (% do mês)
+  const comp = [
+    ['Devolvido integral (MED)','vi','#107c10'],
+    ['Devolvido parcial (MED)','vp','#7fba00'],
+    ['Residual após devolução parcial','res','#f2c811'],
+    ['Não devolvido: saldo insuficiente','vs','#118dff'],
+    ['Não devolvido: conta encerrada','ve','#8764b8'],
+    ['Não devolvido: motivos diversos','vd','#d13438']
+  ];
+  mk('chartPixDecomp',{
+    type:'bar',
+    data:{labels:L,datasets:comp.map(([n,k,c])=>({label:n,data:data.map(d=>d.vc?d[k]/d.vc*100:0),backgroundColor:c,stack:'s'}))},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{x:{stacked:true,ticks:{maxRotation:60,minRotation:45}},y:{stacked:true,max:100,ticks:{callback:v=>v+'%'}}},
+      plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt1(c.parsed.y)+'%'}}}}
+  });
+
+  mk('chartPixBloq',{
+    type:'bar',
+    data:{labels:L,datasets:[
+      {label:'Bloqueados e liberados',data:data.map(d=>d.vbl),backgroundColor:'#118dff'},
+      {label:'Bloqueados e devolvidos',data:data.map(d=>d.vbd),backgroundColor:'#107c10'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{x:{ticks:{maxRotation:60,minRotation:45}},y:{beginAtZero:true,ticks:{callback:v=>fmtR(v)}}},
+      plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtR(c.parsed.y)}}}}
+  });
+
+  document.querySelector('#pixTable tbody').innerHTML = data.slice().reverse().map(d=>{
+    const tx = d.c?d.a/d.c*100:0, p = d.vc?devol(d)/d.vc*100:0;
     return `<tr>
       <td>${pixLabel(d.d)}</td>
-      <td>${fmt(d.c)}</td>
-      <td>${fmt(d.a)}</td>
-      <td>${fmt(d.r)}</td>
-      <td>${tx.toFixed(2)}%</td>
-      <td>${d.t100.toFixed(3)}</td>
-      <td>${fmt(d.uf)}</td>
-      <td>${fmt(d.cf)}</td>
-      <td>${fmtR(d.vc)}</td>
-      <td>${fmtR(vd)}</td>
-      <td>${d.pd.toFixed(2)}%</td>
+      <td class="num">${fmt(d.c)}</td><td class="num">${fmt(d.a)}</td><td class="num">${fmt(d.r)}</td>
+      <td class="num">${fmt2(tx)}%</td><td class="num">${fmt2(d.t100)}</td>
+      <td class="num">${fmt(d.uf)}</td><td class="num">${fmt(d.cf)}</td>
+      <td class="num">${fmtR(d.vc)}</td><td class="num">${fmtR(devol(d))}</td>
+      <td class="num">${fmt2(p)}%</td><td class="num">${fmtR(naoRec(d))}</td><td class="num">${fmtR(d.vbl)}</td>
     </tr>`;
   }).join('');
 }
 
 /* ============ BNDES ============ */
-function getBndesFiltered(){
-  const ano = document.getElementById('bndesAno').value;
-  const uni = document.getElementById('bndesUnidade').value;
-  const ind = document.getElementById('bndesIndicador').value;
-  return bndesLong.filter(r =>
-    (!ano || r.ano===parseInt(ano)) &&
-    (!uni || r.unidade===uni) &&
-    (!ind || r.indicador===ind)
-  );
+const $ = id => document.getElementById(id);
+const UNIDS = [...new Set(BNDES.map(b=>b.u))].sort((a,b)=>a.localeCompare(b));
+const UNID_DEFAULT = BNDES.some(b=>b.u==='R$ milhões') ? 'R$ milhões' : UNIDS[0];
+
+function lastYear(b, zero){
+  for(let i=BNDES_ANOS.length-1;i>=0;i--){
+    const v=b.s[BNDES_ANOS[i]];
+    if(v!==undefined && (zero || v!==0)) return BNDES_ANOS[i];
+  }
+  return null;
+}
+function bVal(b, ano, zero){
+  if(ano) { const v=b.s[ano]; return (v===undefined || (!zero && v===0)) ? null : v; }
+  const y = lastYear(b, zero); return y==null?null:b.s[y];
 }
 
 function renderBndes(){
-  const data = getBndesFiltered();
+  const ano = $('bndesAno').value ? parseInt($('bndesAno').value) : null;
+  const uni = $('bndesUnidade').value;
+  const ind = $('bndesIndicador').value;
+  const zero = !$('bndesZero').checked;               // true = mostrar zeros
 
-  const totalReg = data.length;
-  const totalInd = new Set(data.map(d=>d.indicador)).size;
-  const totalAnos = new Set(data.map(d=>d.ano)).size;
-  const somaVal = data.reduce((s,d)=>s+d.valor,0);
+  // base filtrada por unidade/indicador (para tabela e KPIs)
+  let base = BNDES.filter(b => (!uni || b.u===uni) && (!ind || b.n===ind));
+  const comValor = b => Object.entries(b.s).some(([a,v]) => (!ano || +a===ano) && (zero || v!==0));
+  const visiveis = base.filter(comValor);
 
-  document.getElementById('bndesKpis').innerHTML = `
-    <div class="kpi"><div class="label">Registros</div><div class="value">${fmt(totalReg)}</div><div class="sub">indicador × ano</div></div>
-    <div class="kpi green"><div class="label">Indicadores únicos</div><div class="value">${fmt(totalInd)}</div><div class="sub">conforme filtro</div></div>
-    <div class="kpi yellow"><div class="label">Anos cobertos</div><div class="value">${fmt(totalAnos)}</div><div class="sub">de 2017 a 2025</div></div>
-    <div class="kpi orange"><div class="label">Soma dos valores</div><div class="value">${fmt(somaVal)}</div><div class="sub">mistura unidades</div></div>
+  const totalPts = BNDES.reduce((s,b)=>s+Object.keys(b.s).length,0);
+  const ptsZero = BNDES.reduce((s,b)=>s+Object.values(b.s).filter(v=>v===0).length,0);
+  const origRows = BNDES.reduce((s,b)=>s+b.o.length,0);
+
+  $('bndesKpis').innerHTML = `
+    <div class="kpi"><div class="label">Indicadores unificados</div><div class="value">${fmt(BNDES.length)}</div><div class="sub">de ${fmt(origRows)} nomes originais no arquivo</div></div>
+    <div class="kpi green"><div class="label">Com meta no filtro</div><div class="value">${fmt(visiveis.length)}</div><div class="sub">${zero?'incluindo metas = 0':'metas diferentes de zero'}</div></div>
+    <div class="kpi yellow"><div class="label">Anos cobertos</div><div class="value">${BNDES_ANOS.length}</div><div class="sub">${BNDES_ANOS[0]} a ${BNDES_ANOS[BNDES_ANOS.length-1]}</div></div>
+    <div class="kpi orange"><div class="label">Metas iguais a 0</div><div class="value">${fmt(ptsZero)}</div><div class="sub">${fmt(ptsZero/totalPts*100)}% dos ${fmt(totalPts)} pontos · provável "sem meta"</div></div>
   `;
 
-  // Top 15
-  const byInd = {};
-  data.forEach(d=>{ byInd[d.indicador] = (byInd[d.indicador]||0) + d.valor; });
-  const top = Object.entries(byInd).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  // --- Ranking: sempre dentro de UMA unidade
+  const uR = uni || UNID_DEFAULT;
+  const rank = BNDES.filter(b=>b.u===uR && (!ind || b.n===ind))
+    .map(b=>({b, v:bVal(b,ano,zero), y: ano || lastYear(b,zero)}))
+    .filter(x=>x.v!==null)
+    .sort((a,b)=>b.v-a.v).slice(0,15);
+  $('topTitle').firstChild.textContent = 'Top 15 indicadores — '+uR+' ';
+  $('topSub').textContent = ano ? 'meta de '+ano : 'meta do último ano disponível';
   mk('chartBndesTop',{
     type:'bar',
     data:{
-      labels:top.map(t=>t[0].length>42?t[0].slice(0,42)+'…':t[0]),
-      datasets:[{label:'Valor',data:top.map(t=>t[1]),backgroundColor:'#118dff'}]
+      labels:rank.map(r=>r.b.n.length>46?r.b.n.slice(0,46)+'…':r.b.n),
+      datasets:[{label:'Meta',data:rank.map(r=>r.v),backgroundColor:'#118dff'}]
     },
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.parsed.x)}}},
-      scales:{x:{beginAtZero:true}}}
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        title:i=>rank[i[0].dataIndex].b.n,
+        label:c=>fmtV(c.parsed.x,uR)+' ('+rank[c.dataIndex].y+')'}}},
+      scales:{x:{beginAtZero:true,ticks:{callback:v=>fmt(v)}}}}
   });
 
-  // Distribuição por unidade
+  // --- Indicadores por unidade (contagem)
   const byUni = {};
-  data.forEach(d=>{ byUni[d.unidade] = (byUni[d.unidade]||0) + 1; });
+  BNDES.filter(b=>(!ind || b.n===ind) && comValor(b)).forEach(b=>{ byUni[b.u]=(byUni[b.u]||0)+1; });
   mk('chartBndesUnidade',{
     type:'doughnut',
-    data:{
-      labels:Object.keys(byUni),
-      datasets:[{data:Object.values(byUni),
-        backgroundColor:['#118dff','#107c10','#f2c811','#d13438','#ff8c00','#0b6cbf','#8764b8']}]
-    },
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom'}}}
+    data:{labels:Object.keys(byUni),datasets:[{data:Object.values(byUni),backgroundColor:PALETTE}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}
   });
 
-  // Evolução por ano
-  const byAno = {};
-  data.forEach(d=>{ byAno[d.ano] = (byAno[d.ano]||0) + d.valor; });
-  const anos = Object.keys(byAno).sort();
+  // --- Evolução por ano: 1 indicador (se escolhido) ou as 6 maiores séries da unidade
+  let series;
+  if(ind){ series = BNDES.filter(b=>b.n===ind); }
+  else {
+    series = BNDES.filter(b=>b.u===uR)
+      .filter(b=>Object.values(b.s).some(v=>zero||v!==0))
+      .sort((a,b)=>Math.max(...Object.values(b.s))-Math.max(...Object.values(a.s))).slice(0,6);
+  }
+  const uE = ind ? (series[0]?series[0].u:uR) : uR;
+  $('evoTitle').firstChild.textContent = 'Evolução da meta por ano — '+(ind?'indicador selecionado':'6 maiores indicadores em '+uR)+' ';
+  $('evoSub').textContent = uE;
   mk('chartBndesAno',{
     type:'line',
-    data:{labels:anos,datasets:[
-      {label:'Soma dos valores',data:anos.map(a=>byAno[a]),
-       borderColor:'#118dff',backgroundColor:'rgba(17,141,255,.15)',fill:true,tension:.3,pointRadius:4}
-    ]},
+    data:{labels:BNDES_ANOS.map(String),datasets:series.map((b,i)=>({
+      label:b.n.length>50?b.n.slice(0,50)+'…':b.n,
+      data:BNDES_ANOS.map(a=>{const v=b.s[a]; return (v===undefined||(!zero&&v===0))?null:v;}),
+      borderColor:PALETTE[i%PALETTE.length],backgroundColor:PALETTE[i%PALETTE.length],
+      tension:.25,pointRadius:4,spanGaps:true}))},
     options:{responsive:true,maintainAspectRatio:false,
-      scales:{y:{beginAtZero:true}},
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.parsed.y)}}}}
+      scales:{y:{beginAtZero:true,ticks:{callback:v=>fmt(v)}}},
+      plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtV(c.parsed.y,uE)}}}}
   });
 
-  // Tabela
-  const rows = data.slice().sort((a,b)=> b.valor-a.valor || a.indicador.localeCompare(b.indicador));
-  document.querySelector('#bndesTable tbody').innerHTML = rows.map(r=>`
-    <tr>
-      <td>${r.indicador}</td>
-      <td>${r.ano}</td>
-      <td>${fmt(r.valor)}</td>
-      <td>${r.unidade}</td>
-    </tr>
-  `).join('');
+  // --- Tabela pivotada (indicador × ano)
+  $('bndesHead').innerHTML = '<tr><th>Indicador</th><th>Unidade</th>'+BNDES_ANOS.map(a=>`<th class="num">${a}</th>`).join('')+'</tr>';
+  const rows = visiveis.slice().sort((a,b)=>a.u.localeCompare(b.u)||a.n.localeCompare(b.n));
+  $('bndesTable').querySelector('tbody').innerHTML = rows.map(b=>{
+    const tip = b.o.map(o=>o.l+' ['+o.u+']').join('\n').replace(/"/g,'&quot;');
+    return `<tr><td title="${tip}">${b.n}${b.o.length>1?' <span style="color:#a19f9d">('+b.o.length+' nomes)</span>':''}</td><td>${b.u}</td>`+
+      BNDES_ANOS.map(a=>{
+        const v=b.s[a];
+        if(v===undefined) return '<td class="num zero">—</td>';
+        if(v===0 && !zero) return '<td class="num zero">—</td>';
+        return `<td class="num${v===0?' zero':''}">${fmtV(v,b.u).replace(' mi','')}</td>`;
+      }).join('')+'</tr>';
+  }).join('') || '<tr><td colspan="'+(BNDES_ANOS.length+2)+'">Nenhum indicador com os filtros atuais.</td></tr>';
 }
 
 /* ============ FILTROS ============ */
 function populateFilters(){
-  const anos = [...new Set(pixRaw.map(d=>d.d.slice(0,4)))].sort();
-  const meses = [...new Set(pixRaw.map(d=>d.d.slice(4,6)))].sort();
-  const selAno = document.getElementById('pixAno');
-  anos.forEach(a=> selAno.add(new Option(a,a)));
-  const selMes = document.getElementById('pixMes');
-  const nomes = ['01','02','03','04','05','06','07','08','09','10','11','12'];
-  meses.forEach(m=> selMes.add(new Option(nomes[parseInt(m)-1]+' ('+m+')',m)));
+  const anos = [...new Set(PIX.map(d=>d.d.slice(0,4)))].sort();
+  const meses = [...new Set(PIX.map(d=>d.d.slice(4,6)))].sort();
+  anos.forEach(a=> $('pixAno').add(new Option(a,a)));
+  meses.forEach(m=> $('pixMes').add(new Option(MESES[parseInt(m)-1],m)));
 
-  const bAno = [...new Set(bndesLong.map(d=>d.ano))].sort();
-  const bUni = [...new Set(bndesLong.map(d=>d.unidade))].sort();
-  const bInd = [...new Set(bndesLong.map(d=>d.indicador))].sort();
-  const sA = document.getElementById('bndesAno');
-  bAno.forEach(a=> sA.add(new Option(a,a)));
-  const sU = document.getElementById('bndesUnidade');
-  bUni.forEach(u=> sU.add(new Option(u,u)));
-  const sI = document.getElementById('bndesIndicador');
-  bInd.forEach(i=> sI.add(new Option(i.length>50?i.slice(0,50)+'…':i, i)));
+  const sU = $('bndesUnidade');
+  sU.add(new Option('Todas',''));
+  UNIDS.forEach(u=> sU.add(new Option(u,u)));
+  sU.value = UNID_DEFAULT;
+  BNDES_ANOS.forEach(a=> $('bndesAno').add(new Option(a,a)));
+  fillIndicadores();
+}
+function fillIndicadores(){
+  const uni = $('bndesUnidade').value;
+  const sel = $('bndesIndicador');
+  const atual = sel.value;
+  sel.innerHTML = ''; sel.add(new Option('Todos',''));
+  BNDES.filter(b=>!uni||b.u===uni).map(b=>b.n).sort((a,b)=>a.localeCompare(b))
+    .forEach(n=> sel.add(new Option(n.length>70?n.slice(0,70)+'…':n, n)));
+  if([...sel.options].some(o=>o.value===atual)) sel.value = atual;
 }
 
 function resetPix(){
-  document.getElementById('pixAno').value='';
-  document.getElementById('pixMes').value='';
-  document.getElementById('pixPeriodo').value='';
+  ['pixAno','pixMes','pixPeriodo'].forEach(id=>$(id).value='');
+  $('pixComp').value='q';
   renderPix();
 }
 function resetBndes(){
-  document.getElementById('bndesAno').value='';
-  document.getElementById('bndesUnidade').value='';
-  document.getElementById('bndesIndicador').value='';
+  $('bndesUnidade').value = UNID_DEFAULT;
+  $('bndesAno').value=''; $('bndesZero').checked=true;
+  fillIndicadores(); $('bndesIndicador').value='';
   renderBndes();
 }
 
 /* ============ INIT ============ */
 populateFilters();
-['pixAno','pixMes','pixPeriodo'].forEach(id=>document.getElementById(id).addEventListener('change',renderPix));
-['bndesAno','bndesUnidade','bndesIndicador'].forEach(id=>document.getElementById(id).addEventListener('change',renderBndes));
+$('pixPeriodo').addEventListener('change',()=>{ if($('pixPeriodo').value){ $('pixAno').value=''; $('pixMes').value=''; } renderPix(); });
+['pixAno','pixMes'].forEach(id=>$(id).addEventListener('change',()=>{ if($(id).value) $('pixPeriodo').value=''; renderPix(); }));
+$('pixComp').addEventListener('change',renderPix);
+$('bndesUnidade').addEventListener('change',()=>{ fillIndicadores(); renderBndes(); });
+['bndesAno','bndesIndicador','bndesZero'].forEach(id=>$(id).addEventListener('change',renderBndes));
 
 renderPix();
 renderBndes();
